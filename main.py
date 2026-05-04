@@ -1,6 +1,7 @@
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 import pandas as pd
+import matplotlib.pyplot as plt
 from dataclasses import dataclass
 
 # --- Data Structures ---
@@ -79,6 +80,18 @@ def print_recommendations(recs: list[AreaRecommendation]):
         print()
 
 
+# --- Plot ---
+
+def plot_area_vs_price(df: pd.DataFrame):
+    plt.figure(figsize=(10, 6))
+    plt.scatter(df["assetArea"], df["dealAmount"] / 1_000_000, alpha=0.3, s=10, color="steelblue")
+    plt.xlabel("Area (sqm)")
+    plt.ylabel("Price (millions ILS)")
+    plt.title("Area vs Price")
+    plt.tight_layout()
+    plt.show()
+
+
 # --- Example Run ---
 
 if __name__ == "__main__":
@@ -92,3 +105,5 @@ if __name__ == "__main__":
 
     recommendations = recommend_areas(df, profile, top_n=5)
     print_recommendations(recommendations)
+
+    plot_area_vs_price(df)
