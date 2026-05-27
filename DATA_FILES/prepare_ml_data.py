@@ -88,32 +88,43 @@ df["socio_rank_avg"]   = df["socio_rank_avg"].fillna(df["socio_rank_avg"].median
 df["socio_cluster_mode"] = df["socio_cluster_mode"].fillna(df["socio_cluster_mode"].median())
 
 # ── 5. Encode categorical columns ────────────────────────────────────────────
-df["settlement_encoded"]  = df["settlementNameHeb"].astype("category").cat.codes
-df["deal_nature_encoded"] = df["dealNatureDescription"].astype("category").cat.codes
+df["settlement_encoded"]   = df["settlementNameHeb"].astype("category").cat.codes
+df["deal_nature_encoded"]  = df["dealNatureDescription"].astype("category").cat.codes
+df["neighborhood_encoded"] = df["neighborhood"].astype("category").cat.codes  # NaN -> -1
 
-# ── 6. Drop irrelevant columns ────────────────────────────────────────────────
+# Target encoding for street: replace each street with its mean dealAmount
+# Missing streets get the global mean
+global_mean = df["dealAmount"].mean()
+street_mean = df.groupby("streetNameHeb")["dealAmount"].mean()
+df["street_price_mean"] = df["streetNameHeb"].map(street_mean).fillna(global_mean)
+
+# ── 6. Save apartments-only subset (before dropping text column) ──────────────
+APT_OUTPUT    = "DATA_FILES/data_for_ML_apartments.csv"
+apt_mask      = df["dealNatureDescription"].apply(lambda v: "דירה" in str(v) if pd.notna(v) else False)
+df_apartments = df[apt_mask].copy()
+
+# ── 7. Drop irrelevant columns ────────────────────────────────────────────────
 DROP_COLS = [
     "objectid", "dealId", "gushNum", "parcelNum", "subParcelNum",
     "polygonId", "sourceorder", "streetCode", "streetNameHeb",
     "streetNameEng", "settlementNameEng", "houseNum",
     "E", "N",
     "floorNo", "dealDate",
-    "neighborhood",
+    "neighborhood",  # replaced by neighborhood_encoded
     "propertyTypeDescription",
     "dealNatureDescription",  # replaced by deal_nature_encoded
     "settlementNameHeb",      # replaced by settlement_encoded
 ]
-df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
+df            = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
+df_apartments = df_apartments.drop(columns=[c for c in DROP_COLS if c in df_apartments.columns])
 
-# ── 7. Save ───────────────────────────────────────────────────────────────────
+# ── 8. Save ───────────────────────────────────────────────────────────────────
 df.to_csv(OUTPUT, index=False, encoding="utf-8-sig")
-print(f"\nSaved: {OUTPUT}")
-print(f"Final rows: {len(df):,}")
-print(f"Final columns: {df.shape[1]}")
-print(f"\nMissing values per column:")
-missing = df.isnull().sum()
-missing = missing[missing > 0]
-if len(missing) == 0:
-    print("  No missing values!")
-else:
-    print(missing)
+df_apartments.to_csv(APT_OUTPUT, index=False, encoding="utf-8-sig")
+
+print(f"\nSaved: {OUTPUT}  ({len(df):,} rows, {df.shape[1]} cols)")
+print(f"Saved: {APT_OUTPUT}  ({len(df_apartments):,} rows, {df_apartments.shape[1]} cols)")
+
+for label, d in [("All residential", df), ("Apartments only", df_apartments)]:
+    missing = d.isnull().sum().sum()
+    print(f"{label} — missing values: {missing}")
