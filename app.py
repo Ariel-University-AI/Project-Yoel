@@ -6,6 +6,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 import joblib
+import plotly.express as px
 import streamlit as st
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -59,9 +60,16 @@ def compute_settlement_stats(ml_path: str, disp_path: str, mdl_path: str) -> pd.
         avg_gap    = ("gap_pct",         "mean"),
         deal_count = ("dealAmount",      "count"),
         avg_socio  = ("socio_index_avg", "mean"),
+        avg_lat    = ("N",               "mean"),
+        avg_lon    = ("E",               "mean"),
     ).join(trend_s).reset_index()
 
     return stats
+
+
+@st.cache_data
+def load_display_data(disp_path: str) -> pd.DataFrame:
+    return pd.read_csv(disp_path, encoding="utf-8-sig")
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -78,24 +86,37 @@ with tab_mode_a:
 
     # ── Profile inputs ────────────────────────────────────────────────────────
     st.markdown("### הגדר פרופיל השקעה")
-    p1, p2, p3, p4 = st.columns(4)
-    with p1:
+    r1c1, r1c2, r1c3 = st.columns(3)
+    r2c1, r2c2, r2c3 = st.columns(3)
+
+    with r1c1:
         budget_max = st.number_input(
             "תקציב מקסימום (₪)",
             min_value=300_000, max_value=10_000_000,
             value=2_000_000, step=100_000, format="%d",
         )
-    with p2:
+    with r1c2:
         investment_goal = st.selectbox(
             "מטרת השקעה",
             ["תשואה שוטפת", "עליית ערך"],
         )
-    with p3:
+    with r1c3:
         risk_level = st.selectbox(
             "רמת סיכון מועדפת",
             ["שוק מבוסס", "שוק מתפתח"],
         )
-    with p4:
+    with r2c1:
+        horizon = st.selectbox(
+            "אופק השקעה",
+            ["קצר (1-3 שנה)", "ארוך (5+ שנה)"],
+        )
+    with r2c2:
+        min_yield = st.slider(
+            "תשואה שנתית מינימלית (%)",
+            min_value=0, max_value=20, value=5,
+            help="מסנן יישובים שהתשואה השנתית המשוערת שלהם נמוכה מהסף",
+        )
+    with r2c3:
         min_deals = st.slider(
             "מינ' עסקאות ביישוב",
             min_value=5, max_value=50, value=10,
@@ -105,6 +126,9 @@ with tab_mode_a:
     st.divider()
 
     # ── Filter by profile ─────────────────────────────────────────────────────
+    HORIZON_YEARS = {"קצר (1-3 שנה)": 2, "ארוך (5+ שנה)": 7}
+    h_yrs = HORIZON_YEARS[horizon]
+
     filtered = stats[stats["avg_price"] <= budget_max].copy()
 
     socio_med = stats["avg_socio"].median()
@@ -114,6 +138,10 @@ with tab_mode_a:
         filtered = filtered[filtered["avg_socio"] < socio_med]
 
     filtered = filtered[filtered["deal_count"] >= min_deals].copy()
+
+    # Estimated annual yield = gap spread over horizon + annual price trend
+    filtered["est_yield_pct"] = (filtered["avg_gap"] / h_yrs + filtered["trend_pct_yr"]).round(1)
+    filtered = filtered[filtered["est_yield_pct"] >= min_yield].copy()
 
     if filtered.empty:
         st.warning("לא נמצאו יישובים התואמים לפרופיל. נסה להרחיב את הפרמטרים.")
@@ -140,11 +168,12 @@ with tab_mode_a:
 
         # ── Metrics row ───────────────────────────────────────────────────────
         top = filtered.iloc[0]
-        ma1, ma2, ma3, ma4 = st.columns(4)
-        ma1.metric("יישובים שנמצאו",     len(filtered))
-        ma2.metric("ציון מקסימלי",        f"{top['viability_score']:.0f} / 100")
-        ma3.metric("מחיר ממוצע — מוביל",  f"{top['avg_price']:,.0f} ILS")
-        ma4.metric("פער ממוצע — מוביל",   f"{top['avg_gap']:+.1f}%")
+        ma1, ma2, ma3, ma4, ma5 = st.columns(5)
+        ma1.metric("יישובים שנמצאו",       len(filtered))
+        ma2.metric("ציון מקסימלי",          f"{top['viability_score']:.0f} / 100")
+        ma3.metric("מחיר ממוצע — מוביל",    f"{top['avg_price']:,.0f} ILS")
+        ma4.metric("פער ממוצע — מוביל",     f"{top['avg_gap']:+.1f}%")
+        ma5.metric("תשואה משוערת — מוביל",  f"{top['est_yield_pct']:+.1f}%/שנה")
 
         # ── Table ─────────────────────────────────────────────────────────────
         show = filtered.rename(columns={
@@ -152,19 +181,21 @@ with tab_mode_a:
             "viability_score":   "ציון כדאיות",
             "avg_price":         "מחיר ממוצע (₪)",
             "avg_gap":           "פער ממוצע (%)",
+            "est_yield_pct":     "תשואה משוערת (%/שנה)",
             "trend_pct_yr":      "מגמה (%/שנה)",
             "deal_count":        "עסקאות",
             "avg_socio":         "מדד סוציו",
         }).copy()
 
-        show["מחיר ממוצע (₪)"] = show["מחיר ממוצע (₪)"].round(0).astype(int)
-        show["פער ממוצע (%)"]  = show["פער ממוצע (%)"].round(1)
-        show["מגמה (%/שנה)"]   = show["מגמה (%/שנה)"].round(1)
-        show["מדד סוציו"]       = show["מדד סוציו"].round(2)
+        show["מחיר ממוצע (₪)"]        = show["מחיר ממוצע (₪)"].round(0).astype(int)
+        show["פער ממוצע (%)"]          = show["פער ממוצע (%)"].round(1)
+        show["תשואה משוערת (%/שנה)"]   = show["תשואה משוערת (%/שנה)"].round(1)
+        show["מגמה (%/שנה)"]           = show["מגמה (%/שנה)"].round(1)
+        show["מדד סוציו"]               = show["מדד סוציו"].round(2)
 
         st.dataframe(
-            show[["יישוב", "ציון כדאיות", "מחיר ממוצע (₪)", "פער ממוצע (%)",
-                  "מגמה (%/שנה)", "עסקאות", "מדד סוציו"]].head(15),
+            show[["יישוב", "ציון כדאיות", "מחיר ממוצע (₪)", "תשואה משוערת (%/שנה)",
+                  "פער ממוצע (%)", "מגמה (%/שנה)", "עסקאות", "מדד סוציו"]].head(15),
             hide_index=True,
             use_container_width=True,
         )
@@ -175,6 +206,36 @@ with tab_mode_a:
             f"פער מחיר {int(w_gap*100)}% + מגמה {int(w_trend*100)}% + נזילות {int(w_liq*100)}%  |  "
             f"**פער חיובי** = נמכרו מתחת למחיר השוק (הזדמנות)"
         )
+
+        st.divider()
+
+        # ── Heatmap ───────────────────────────────────────────────────────────
+        st.markdown("### מפת אזורי חום — פוטנציאל השקעה")
+
+        df_d = load_display_data(str(APT_DISP_PATH))
+        map_pts = (
+            df_d[df_d["settlementNameHeb"].isin(filtered["settlementNameHeb"])]
+            .merge(filtered[["settlementNameHeb", "viability_score"]], on="settlementNameHeb", how="left")
+            .rename(columns={"N": "lat", "E": "lon"})
+            .dropna(subset=["lat", "lon"])
+        )
+
+        fig_map = px.density_mapbox(
+            map_pts,
+            lat="lat", lon="lon",
+            z="viability_score",
+            radius=18,
+            center={"lat": 31.8, "lon": 34.9},
+            zoom=7,
+            mapbox_style="open-street-map",
+            color_continuous_scale="YlOrRd",
+            height=550,
+        )
+        fig_map.update_layout(
+            margin=dict(t=20, b=10, l=10, r=10),
+            coloraxis_colorbar=dict(title="ציון"),
+        )
+        st.plotly_chart(fig_map, use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

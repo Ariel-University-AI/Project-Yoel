@@ -109,6 +109,7 @@ DISPLAY_COLS = [
     "settlementNameHeb", "neighborhood", "streetNameHeb", "houseNum",
     "dealAmount", "assetArea", "assetRoomNum", "floor_num",
     "deal_year", "deal_month", "X", "Y",
+    "E", "N",  # WGS84 lon/lat for mapping
     "socio_index_avg", "socio_rank_avg",
 ]
 df_apartments[[c for c in DISPLAY_COLS if c in df_apartments.columns]].reset_index(drop=True).to_csv(
