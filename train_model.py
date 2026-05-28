@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 from xgboost import XGBRegressor
 
-DATA_PATH  = "DATA_FILES/data_for_ML_apartments.csv"
+DATA_PATH  = "DATA_FILES/apartments_ml_ready.csv"
 MODEL_PATH = "model.pkl"
 TARGET     = "dealAmount"
 RANDOM_STATE = 42

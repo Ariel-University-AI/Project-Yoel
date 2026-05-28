@@ -99,9 +99,22 @@ street_mean = df.groupby("streetNameHeb")["dealAmount"].mean()
 df["street_price_mean"] = df["streetNameHeb"].map(street_mean).fillna(global_mean)
 
 # ── 6. Save apartments-only subset (before dropping text column) ──────────────
-APT_OUTPUT    = "DATA_FILES/data_for_ML_apartments.csv"
-apt_mask      = df["dealNatureDescription"].apply(lambda v: "דירה" in str(v) if pd.notna(v) else False)
-df_apartments = df[apt_mask].copy()
+APT_OUTPUT      = "DATA_FILES/apartments_ml_ready.csv"
+DISPLAY_OUTPUT  = "DATA_FILES/apartments_display.csv"
+apt_mask        = df["dealNatureDescription"].apply(lambda v: "דירה" in str(v) if pd.notna(v) else False)
+df_apartments   = df[apt_mask].copy()
+
+# Save display info (text columns) at same row-order as apartments_ml_ready
+DISPLAY_COLS = [
+    "settlementNameHeb", "neighborhood", "streetNameHeb", "houseNum",
+    "dealAmount", "assetArea", "assetRoomNum", "floor_num",
+    "deal_year", "deal_month", "X", "Y",
+    "socio_index_avg", "socio_rank_avg",
+]
+df_apartments[[c for c in DISPLAY_COLS if c in df_apartments.columns]].reset_index(drop=True).to_csv(
+    DISPLAY_OUTPUT, index=False, encoding="utf-8-sig"
+)
+print(f"Saved: {DISPLAY_OUTPUT}  ({len(df_apartments):,} rows)")
 
 # ── 7. Drop irrelevant columns ────────────────────────────────────────────────
 DROP_COLS = [
