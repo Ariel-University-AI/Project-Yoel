@@ -19,6 +19,46 @@ APT_ML_PATH   = BASE / "DATA_FILES" / "apartments_ml_ready.csv"
 APT_DISP_PATH = BASE / "DATA_FILES" / "apartments_display.csv"
 POI_PATH      = BASE / "DATA_FILES" / "ISRAEL_POINTS_FILTERED_GEO.csv"
 
+_DISTRICT_MAP = {
+    "מחוז ירושלים": [
+        "ירושלים", "בית שמש", "מעלה אדומים", "גבעת זאב", "ביתר עילית",
+        "מודיעין עילית", "אפרת", "קרית ארבע", "מבשרת ציון", "בית לחם הגלילית",
+        "עפרה", "קדומים", "אריאל", "מעלה שומרון",
+    ],
+    "מחוז תל אביב": [
+        "תל אביב-יפו", "תל אביב יפו", "בת ים", "חולון", "בני ברק",
+        "גבעתיים", "רמת גן", "אור יהודה", "גבעת שמואל", "קרית אונו",
+        "יהוד-מונוסון", "יהוד מונוסון", "אלעד",
+    ],
+    "מחוז המרכז": [
+        "ראשון לציון", "פתח תקווה", "רחובות", "נס ציונה", "לוד", "רמלה",
+        "מודיעין-מכבים-רעות", "מודיעין מכבים רעות", "רעננה", "כפר סבא",
+        "הוד השרון", "נתניה", "הרצליה", "רמת השרון", "ראש העין", "יבנה",
+        "גדרה", "באר יעקב", "שוהם", "טייבה", "קלנסווה", "כפר קאסם",
+        "ג'לג'וליה", "כפר יונה", "עמנואל", "בית אריה",
+    ],
+    "מחוז חיפה": [
+        "חיפה", "קרית אתא", "קרית ביאליק", "קרית מוצקין", "קרית ים",
+        "נשר", "טירת כרמל", "קרית טבעון", "זכרון יעקב",
+        "פרדס חנה-כרכור", "פרדס חנה כרכור", "חדרה", "אור עקיבא",
+        "בנימינה-גבעת עדה", "בנימינה גבעת עדה", "עכו", "נהריה",
+        "שפרעם", "בקה אל-גרבייה", "אום אל-פחם",
+    ],
+    "מחוז הצפון": [
+        "נצרת", "נוף הגליל", "נצרת עילית", "עפולה", "קרית שמונה",
+        "צפת", "טבריה", "כרמיאל", "מגדל העמק", "בית שאן",
+        "מעלות-תרשיחא", "מעלות תרשיחא", "יוקנעם עילית", "סח'נין",
+        "ירכא", "כפר יאסיף", "מגדל", "רמת ישי", "קרית טבעון",
+        "בית שאן", "אפולה", "מגדל העמק",
+    ],
+    "מחוז הדרום": [
+        "באר שבע", "אשדוד", "אשקלון", "דימונה", "קרית מלאכי",
+        "נתיבות", "שדרות", "אופקים", "ירוחם", "מצפה רמון",
+        "רהט", "קרית גת", "גן יבנה", "קרית עקרון", "יבנה",
+        "גדרות", "לכיש", "קרית ארבע", "ערד",
+    ],
+}
+
 st.set_page_config(
     page_title='יועץ נדל"ן חכם',
     layout="wide",
@@ -834,6 +874,23 @@ def fetch_yad2_city_listings(city_heb, max_pages=3):
         rooms   = add_d.get("roomsCount")  or add_d.get("rooms")
         item_id = str(item.get("token") or item.get("orderId") or item.get("id") or "")
 
+        # Extract coordinates — try several known Yad2 JSON paths
+        _coords = (
+            addr.get("coords") or addr.get("coordinate") or
+            item.get("coordinate") or item.get("geoLocation") or
+            item.get("location") or {}
+        )
+        _lat_v = _coords.get("lat") or _coords.get("latitude")
+        _lon_v = _coords.get("lon") or _coords.get("lng") or _coords.get("longitude")
+        try:
+            _lat_f = float(_lat_v) if _lat_v is not None else np.nan
+            _lon_f = float(_lon_v) if _lon_v is not None else np.nan
+            # Sanity-check: must be within Israel bounding box
+            if not (29.0 <= _lat_f <= 34.0 and 34.0 <= _lon_f <= 36.5):
+                _lat_f = _lon_f = np.nan
+        except (TypeError, ValueError):
+            _lat_f = _lon_f = np.nan
+
         rows.append({
             "שכונה":           hood,
             "רחוב":            street,
@@ -843,6 +900,8 @@ def fetch_yad2_city_listings(city_heb, max_pages=3):
             "קומה":            float(floor_v) if floor_v is not None else np.nan,
             "מחיר מבוקש (₪)": int(price),
             "_yad2_id":        item_id,
+            "_lat":            _lat_f,
+            "_lon":            _lon_f,
         })
 
     if not rows:
@@ -935,6 +994,38 @@ def itm_to_wgs84(x_ser: pd.Series, y_ser: pd.Series):
     )
     lon = lam0 + (D1 - (1 + 2*T1 + C1)*D1**3/6) / np.cos(phi1)
     return np.degrees(lat), np.degrees(lon)
+
+
+@st.cache_data
+def _get_df_with_latlon() -> pd.DataFrame:
+    """Returns the full predictions DataFrame enriched with _lat/_lon columns (WGS84)."""
+    df = compute_predictions()
+    valid = df.dropna(subset=["X", "Y"])
+    lats, lons = itm_to_wgs84(valid["X"], valid["Y"])
+    df = df.copy()
+    df["_lat"] = np.nan
+    df["_lon"] = np.nan
+    df.loc[valid.index, "_lat"] = lats
+    df.loc[valid.index, "_lon"] = lons
+    return df[df["_lat"].between(29, 34) & df["_lon"].between(34, 36)].copy()
+
+
+def _pts_in_polygon(lats: np.ndarray, lons: np.ndarray, polygon_lonlat: list) -> np.ndarray:
+    """Vectorised ray-casting point-in-polygon. polygon_lonlat is a GeoJSON ring: [[lon,lat],...]."""
+    py = np.array([p[1] for p in polygon_lonlat], dtype=float)
+    px = np.array([p[0] for p in polygon_lonlat], dtype=float)
+    n = len(py)
+    inside = np.zeros(len(lats), dtype=bool)
+    j = n - 1
+    for i in range(n):
+        yi, yj = py[i], py[j]
+        xi, xj = px[i], px[j]
+        cross = ((yi > lats) != (yj > lats)) & (
+            lons < (xj - xi) * (lats - yi) / np.where(yj != yi, yj - yi, 1e-15) + xi
+        )
+        inside ^= cross
+        j = i
+    return inside
 
 
 @st.cache_data
@@ -1073,10 +1164,11 @@ if page == "🏠 עמוד הבית":
             st.rerun()
         st.markdown("---")
     else:
-        _goal_short = "תשואה שוטפת" if "תשואה" in st.session_state["profile_goal"] else "עליית ערך"
-        st.success(f"👤 פרופיל פעיל: תקציב **{st.session_state['profile_budget']:,} ₪** · מטרה: **{_goal_short}**")
+        _goal_short = "תשואה שוטפת" if "תשואה" in st.session_state.get("profile_goal", "💵 תשואה שוטפת (השכרה)") else "עליית ערך"
+        st.success(f"👤 פרופיל פעיל: תקציב **{st.session_state.get('profile_budget', 2_000_000):,} ₪** · מטרה: **{_goal_short}**")
 
-    rtl("<h3>🚀 במה הכלי יכול לעזור לך?</h3>")
+    # ── Tool cards ────────────────────────────────────────────────────────────
+    rtl('<h3>🚀 מה תוכל לעשות כאן?</h3>')
 
     c1, c2, c3 = st.columns(3)
 
@@ -1084,10 +1176,8 @@ if page == "🏠 עמוד הבית":
         with st.container(border=True):
             rtl("""
             <h4>🔍 מצא אזור להשקעה</h4>
-            <p>לא בטוח איפה לחפש?</p>
-            <p>הכנס את <strong>התקציב שלך</strong> ומה חשוב לך יותר —
-            לקבל שכ"ד חודשי או שהנכס יעלה בערך לאורך זמן.
-            הכלי ימליץ על <strong>האזורים הטובים ביותר</strong> עבורך.</p>
+            <p style="color:#555; font-size:0.9rem;">מתי: לא יודע איפה לחפש</p>
+            <p>קבל רשימת ערים מומלצות לפי תקציב ומטרה — ממוינות לפי ציון כדאיות.</p>
             """)
             if st.button("התחל לחפש ←", key="go_find", use_container_width=True):
                 st.session_state["_nav_request"] = "🔍 מצא אזור להשקעה"
@@ -1097,10 +1187,8 @@ if page == "🏠 עמוד הבית":
         with st.container(border=True):
             rtl("""
             <h4>🏡 בדוק נכס ספציפי</h4>
-            <p>מצאת דירה שמעניינת אותך?</p>
-            <p>הכנס את <strong>פרטי הנכס והמחיר המבוקש</strong> —
-            הכלי יגיד לך אם המחיר הוגן,
-            ויציג עסקאות דומות להשוואה.</p>
+            <p style="color:#555; font-size:0.9rem;">מתי: מצאת דירה ורוצה לדעת אם המחיר הוגן</p>
+            <p>הכנס פרטי הנכס — המודל יגיד אם המחיר מעל או מתחת לשוק.</p>
             """)
             if st.button("בדוק נכס ←", key="go_check", use_container_width=True):
                 st.session_state["_nav_request"] = "🏡 בדוק נכס ספציפי"
@@ -1110,68 +1198,12 @@ if page == "🏠 עמוד הבית":
         with st.container(border=True):
             rtl("""
             <h4>📊 עיין בנכסים ביישוב</h4>
-            <p>רוצה לראות מה נמכר ובכמה?</p>
-            <p>בחר <strong>עיר</strong> וסנן לפי גודל וחדרים —
-            כל העסקאות מדורגות לפי ציון כדאיות,
-            כדי שתוכל להשוות בקלות.</p>
+            <p style="color:#555; font-size:0.9rem;">מתי: רוצה לראות מה נמכר בפועל בעיר מסוימת</p>
+            <p>סנן עסקאות לפי גודל, חדרים ושנה — כולל מחיר חזוי וציון לכל עסקה.</p>
             """)
             if st.button("עיין ביישוב ←", key="go_browse", use_container_width=True):
                 st.session_state["_nav_request"] = "📊 עיין בנכסים ביישוב"
                 st.rerun()
-
-    st.markdown("---")
-
-    # ── Navigation Map ────────────────────────────────────────────────────────
-    rtl('<h2>🗺️ מפת ניווט — מאיפה מתחילים?</h2>')
-    rtl('<p style="color:#555;">בחר את המצב שמתאים לך — ותדע בדיוק לאן ללכת:</p>')
-
-    st.markdown("""
-    <div dir="rtl" style="display:flex; gap:16px; margin:16px 0 24px; flex-wrap:wrap;">
-
-      <div style="flex:1; min-width:220px; background:#EAF7EE; border:2px solid #1A9E3F; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(26,158,63,0.08);">
-        <div style="font-size:2rem; text-align:center;">🆕</div>
-        <h4 style="text-align:center; color:#1A9E3F; margin:8px 0 14px; font-weight:700;">אני חדש,<br>לא יודע מאיפה להתחיל</h4>
-        <div>
-          <div style="background:#1A9E3F; color:white; border-radius:6px; padding:9px 14px; margin:5px 0; text-align:right; font-weight:600;">① 🔍 מצא אזור להשקעה</div>
-          <div style="color:#696969; font-size:0.82rem; text-align:right; padding:2px 14px 6px;">הכנס תקציב ← קבל המלצות על ערים</div>
-          <div style="text-align:center; font-size:1.3rem; color:#1A9E3F; line-height:1;">↓</div>
-          <div style="background:#1A9E3F; color:white; border-radius:6px; padding:9px 14px; margin:5px 0; opacity:0.85; text-align:right; font-weight:600;">② 🏡 בדוק נכס ספציפי</div>
-          <div style="color:#696969; font-size:0.82rem; text-align:right; padding:2px 14px 6px;">הכנס פרטי הדירה ← בדוק אם המחיר הוגן</div>
-          <div style="text-align:center; font-size:1.3rem; color:#1A9E3F; line-height:1;">↓</div>
-          <div style="background:#1A9E3F; color:white; border-radius:6px; padding:9px 14px; margin:5px 0; opacity:0.70; text-align:right; font-weight:600;">③ 📊 עיין בנכסים ביישוב</div>
-          <div style="color:#696969; font-size:0.82rem; text-align:right; padding:2px 14px;">ראה מה נמכר בפועל והשווה</div>
-        </div>
-      </div>
-
-      <div style="flex:1; min-width:220px; background:#EBF3FF; border:2px solid #006AFF; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,106,255,0.08);">
-        <div style="font-size:2rem; text-align:center;">🏡</div>
-        <h4 style="text-align:center; color:#006AFF; margin:8px 0 14px; font-weight:700;">מצאתי דירה ספציפית<br>שמעניינת אותי</h4>
-        <div>
-          <div style="background:#006AFF; color:white; border-radius:6px; padding:9px 14px; margin:5px 0; text-align:right; font-weight:600;">① 🏡 בדוק נכס ספציפי</div>
-          <div style="color:#696969; font-size:0.82rem; text-align:right; padding:2px 14px 6px;">הכנס עיר, מחיר, שטח, חדרים, קומה</div>
-          <div style="text-align:center; font-size:1.3rem; color:#006AFF; line-height:1;">↓</div>
-          <div style="background:#006AFF; color:white; border-radius:6px; padding:9px 14px; margin:5px 0; opacity:0.85; text-align:right; font-weight:600;">② 📊 עיין בנכסים ביישוב</div>
-          <div style="color:#696969; font-size:0.82rem; text-align:right; padding:2px 14px;">השווה לעסקאות אמיתיות באותה עיר</div>
-        </div>
-        <div style="margin-top:16px; padding:10px 14px; background:#D6E9FF; border-radius:6px;">
-          <p style="font-size:0.82rem; color:#003D99; margin:0; text-align:right;">💡 טיפ: אחרי שתקבל ציון כדאיות, לחץ על "עיין בנכסים ביישוב" כדי לראות כמה שילמו שכנים על דירות דומות</p>
-        </div>
-      </div>
-
-      <div style="flex:1; min-width:220px; background:#E5F7F8; border:2px solid #00A2AD; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,162,173,0.08);">
-        <div style="font-size:2rem; text-align:center;">📊</div>
-        <h4 style="text-align:center; color:#00A2AD; margin:8px 0 14px; font-weight:700;">רוצה לסקור מחירים<br>בעיר מסוימת</h4>
-        <div>
-          <div style="background:#00A2AD; color:white; border-radius:6px; padding:9px 14px; margin:5px 0; text-align:right; font-weight:600;">① 📊 עיין בנכסים ביישוב</div>
-          <div style="color:#696969; font-size:0.82rem; text-align:right; padding:2px 14px;">בחר עיר ← סנן לפי גודל, חדרים, שנה</div>
-        </div>
-        <div style="margin-top:16px; padding:10px 14px; background:#CCF0F2; border-radius:6px;">
-          <p style="font-size:0.82rem; color:#005F68; margin:0; text-align:right;">💡 טיפ: מומלץ לסנן לשנתיים האחרונות — מחירים ישנים לא תמיד משקפים את השוק היום</p>
-        </div>
-      </div>
-
-    </div>
-    """, unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -1336,6 +1368,7 @@ elif page == "👤 הפרופיל שלי":
             st.number_input(
                 "💰 תקציב מקסימלי (₪)",
                 min_value=300_000, max_value=10_000_000,
+                value=st.session_state.get("profile_budget", 2_000_000),
                 step=100_000, format="%d",
                 key="profile_budget",
                 help="המחיר המקסימלי שאתה מוכן לשלם. אזורים שמחירם הממוצע גבוה יותר יסוננו.",
@@ -1379,8 +1412,8 @@ elif page == "🔍 מצא אזור להשקעה":
         """)
 
     # ── Profile summary ───────────────────────────────────────────────────────
-    budget = st.session_state["profile_budget"]
-    goal   = st.session_state["profile_goal"]
+    budget = st.session_state.get("profile_budget", 2_000_000)
+    goal   = st.session_state.get("profile_goal", "💵 תשואה שוטפת (השכרה)")
 
     with st.container(border=True):
         _pc1, _pc2 = st.columns([4, 1])
@@ -2114,8 +2147,8 @@ elif page == "📊 עיין בנכסים ביישוב":
             <p>🔹 <strong>מקור נתונים</strong><br>
             <em>נתונים היסטוריים</em> — עסקאות שבוצעו בפועל (מחיר שנמכר).<br>
             <em>מחירים בזמן אמת</em> — מודעות פעילות כעת ביד2 (מחיר מבוקש).</p>
-            <p>🔹 <strong>עיר / יישוב</strong><br>
-            בחר את העיר שמעניינת אותך.</p>
+            <p>🔹 <strong>בחירת אזור</strong><br>
+            עיר בודדת, מחוז שלם, או ציור פוליגון חופשי על המפה.</p>
             <p>🔹 <strong>סינון</strong><br>
             גרור את הסרגלים לפי שטח, חדרים ושנה (בנתונים היסטוריים).</p>
             """)
@@ -2123,7 +2156,7 @@ elif page == "📊 עיין בנכסים ביישוב":
     # ── Mode selector ─────────────────────────────────────────────────────────
     mode = st.radio(
         "📡 מקור נתונים:",
-        ["📂 נתונים היסטוריים (רשות המיסים)", "🔴 מחירים בזמן אמת (יד2)"],
+        ["🔴 מחירים בזמן אמת (יד2)", "📂 נתונים היסטוריים (רשות המיסים)"],
         horizontal=True,
         key="browse_mode",
     )
@@ -2135,15 +2168,82 @@ elif page == "📊 עיין בנכסים ביישוב":
 
         df_all = compute_predictions()
         cities = sorted(df_all["settlementNameHeb"].dropna().unique().tolist())
-        default_city = "בת ים" if "בת ים" in cities else cities[0]
 
-        selected_city = st.selectbox(
-            "🏙️ בחר עיר / יישוב", cities,
-            index=cities.index(default_city), key="browse_city",
-            help="בחר את העיר שמעניינת אותך לבדיקה.",
+        area_mode = st.radio(
+            "🗺️ בחירת אזור:",
+            ["🏙️ עיר / יישוב", "🗺️ מחוז", "✏️ פוליגון על מפה"],
+            horizontal=True,
+            key="browse_area_mode",
         )
 
-        df_city = df_all[df_all["settlementNameHeb"] == selected_city].copy()
+        # ── City ──────────────────────────────────────────────────────────────
+        if area_mode == "🏙️ עיר / יישוב":
+            default_city = "בת ים" if "בת ים" in cities else cities[0]
+            selected_city = st.selectbox(
+                "🏙️ בחר עיר / יישוב", cities,
+                index=cities.index(default_city), key="browse_city",
+                help="בחר את העיר שמעניינת אותך לבדיקה.",
+            )
+            df_city = df_all[df_all["settlementNameHeb"] == selected_city].copy()
+            area_label = selected_city
+
+        # ── District ──────────────────────────────────────────────────────────
+        elif area_mode == "🗺️ מחוז":
+            district = st.selectbox(
+                "🗺️ בחר מחוז", list(_DISTRICT_MAP.keys()), key="browse_district",
+            )
+            district_cities = [c for c in _DISTRICT_MAP[district] if c in cities]
+            if not district_cities:
+                st.warning(f"לא נמצאו ערים מהמחוז '{district}' בבסיס הנתונים.")
+                st.stop()
+            df_city = df_all[df_all["settlementNameHeb"].isin(district_cities)].copy()
+            area_label = f"{district} ({len(district_cities)} יישובים)"
+            st.caption(f"יישובים: {', '.join(sorted(district_cities))}")
+
+        # ── Polygon ───────────────────────────────────────────────────────────
+        else:
+            try:
+                from streamlit_folium import st_folium
+                import folium
+                from folium.plugins import Draw
+            except ImportError:
+                st.error("חסרה ספרייה: streamlit-folium. הרץ: pip install streamlit-folium folium")
+                st.stop()
+
+            st.info("✏️ צייר פוליגון על המפה כדי לבחור אזור. לחץ על כלי הפוליגון בפאנל השמאלי.")
+            fmap_draw = folium.Map(location=[31.8, 34.9], zoom_start=8, tiles="OpenStreetMap")
+            Draw(
+                draw_options={
+                    "polyline": False, "rectangle": True, "polygon": True,
+                    "circle": False, "marker": False, "circlemarker": False,
+                },
+                edit_options={"edit": True, "remove": True},
+            ).add_to(fmap_draw)
+
+            draw_out = st_folium(fmap_draw, key="browse_draw_map",
+                                 use_container_width=True, height=430)
+
+            polygon_lonlat = None
+            if draw_out and draw_out.get("last_active_drawing"):
+                geom = draw_out["last_active_drawing"].get("geometry", {})
+                if geom.get("type") == "Polygon":
+                    polygon_lonlat = geom["coordinates"][0]
+                elif geom.get("type") == "Rectangle":
+                    polygon_lonlat = geom["coordinates"][0]
+
+            if not polygon_lonlat:
+                st.caption("ממתין לציור פוליגון...")
+                st.stop()
+
+            df_ll = _get_df_with_latlon()
+            mask = _pts_in_polygon(
+                df_ll["_lat"].values, df_ll["_lon"].values, polygon_lonlat
+            )
+            df_city = df_ll[mask].copy()
+            area_label = f"פוליגון ({len(df_city)} עסקאות)"
+            if df_city.empty:
+                st.warning("לא נמצאו עסקאות בתוך הפוליגון. נסה אזור גדול יותר.")
+                st.stop()
 
         sm1, sm2, sm3, sm4 = st.columns(4)
         sm1.metric("סה\"כ עסקאות",      len(df_city),
@@ -2261,7 +2361,7 @@ elif page == "📊 עיין בנכסים ביישוב":
             if c in show.columns]
 
         st.dataframe(
-            show[disp_cols].head(30),
+            show[disp_cols].head(100),
             column_config={
                 "ציון כדאיות": st.column_config.ProgressColumn(
                     "ציון כדאיות (0-10)", min_value=0, max_value=10, format="%.1f",
@@ -2321,12 +2421,93 @@ elif page == "📊 עיין בנכסים ביישוב":
         cities_rt   = sorted(c for c in _all_cities if c in _YAD2_CITY_IDS)
         default_rt  = "בת ים" if "בת ים" in cities_rt else (cities_rt[0] if cities_rt else "")
 
-        selected_city_rt = st.selectbox(
-            "🏙️ בחר עיר / יישוב", cities_rt,
-            index=cities_rt.index(default_rt) if default_rt in cities_rt else 0,
-            key="browse_city_rt",
-            help="מציג רק ערים הנתמכות בחיפוש יד2.",
+        rt_area_mode = st.radio(
+            "🗺️ בחירת אזור:",
+            ["🏙️ עיר / יישוב", "🗺️ מחוז", "✏️ פוליגון על מפה"],
+            horizontal=True,
+            key="browse_rt_area_mode",
         )
+
+        if rt_area_mode == "🗺️ מחוז":
+            district_rt = st.selectbox(
+                "🗺️ בחר מחוז", list(_DISTRICT_MAP.keys()), key="browse_rt_district",
+            )
+            _rt_fetch_cities = sorted(c for c in _DISTRICT_MAP[district_rt] if c in cities_rt)
+            if not _rt_fetch_cities:
+                st.warning(f"אין ערים נתמכות ביד2 במחוז '{district_rt}'.")
+                st.stop()
+            st.caption(f"יטען מ-{len(_rt_fetch_cities)} ערים: {', '.join(_rt_fetch_cities)}")
+            selected_city_rt = district_rt          # cache key = district name
+        elif rt_area_mode == "✏️ פוליגון על מפה":
+            try:
+                from streamlit_folium import st_folium as _st_folium_sel
+                import folium as _folium_sel
+                from folium.plugins import Draw as _Draw_sel
+            except ImportError:
+                st.error("חסרה ספרייה: streamlit-folium. הרץ: pip install streamlit-folium folium")
+                st.stop()
+
+            # Build city centroid lookup from historical data
+            _df_centroids_src = _get_df_with_latlon()
+            _city_centroids_rt = (
+                _df_centroids_src[_df_centroids_src["settlementNameHeb"].isin(cities_rt)]
+                .groupby("settlementNameHeb")[["_lat", "_lon"]].mean()
+                .reset_index()
+                .dropna()
+            )
+
+            st.caption("✏️ צייר פוליגון או מלבן על המפה — יטענו כל הערים שמרכזן בתוכו.")
+
+            _fmap_sel = _folium_sel.Map(location=[31.8, 34.9], zoom_start=8, tiles="OpenStreetMap")
+            for _, _cr in _city_centroids_rt.iterrows():
+                _folium_sel.CircleMarker(
+                    location=[float(_cr["_lat"]), float(_cr["_lon"])],
+                    radius=4, color="#1f77b4", fill=True, fill_opacity=0.7, weight=1,
+                    tooltip=_cr["settlementNameHeb"],
+                ).add_to(_fmap_sel)
+            _Draw_sel(
+                draw_options={
+                    "polyline": False, "rectangle": True, "polygon": True,
+                    "circle": False, "marker": False, "circlemarker": False,
+                },
+                edit_options={"edit": True, "remove": True},
+            ).add_to(_fmap_sel)
+
+            _sel_out = _st_folium_sel(_fmap_sel, key="rt_select_polygon_map",
+                                      use_container_width=True, height=380)
+
+            if _sel_out and _sel_out.get("last_active_drawing"):
+                _geom_sel = _sel_out["last_active_drawing"].get("geometry", {})
+                if _geom_sel.get("type") in ("Polygon", "Rectangle"):
+                    _new_sel_poly = _geom_sel["coordinates"][0]
+                    if st.session_state.get("_rt_select_polygon") != _new_sel_poly:
+                        st.session_state["_rt_select_polygon"] = _new_sel_poly
+                        st.session_state.pop("_rt_df", None)
+                        st.session_state.pop("_rt_error", None)
+
+            _sel_poly = st.session_state.get("_rt_select_polygon")
+            if _sel_poly and not _city_centroids_rt.empty:
+                _c_lats = _city_centroids_rt["_lat"].values
+                _c_lons = _city_centroids_rt["_lon"].values
+                _in_sel = _pts_in_polygon(_c_lats, _c_lons, _sel_poly)
+                _rt_fetch_cities = _city_centroids_rt[_in_sel]["settlementNameHeb"].tolist()
+                if _rt_fetch_cities:
+                    st.caption(f"יטען מ-{len(_rt_fetch_cities)} ערים: {', '.join(_rt_fetch_cities)}")
+                    selected_city_rt = "|".join(sorted(_rt_fetch_cities))
+                else:
+                    st.warning("לא נמצאו ערים בפוליגון. נסה לצייר אזור גדול יותר.")
+                    st.stop()
+            else:
+                st.info("💡 צייר פוליגון להגדרת האזור לטעינה")
+                st.stop()
+        else:
+            selected_city_rt = st.selectbox(
+                "🏙️ בחר עיר / יישוב", cities_rt,
+                index=cities_rt.index(default_rt) if default_rt in cities_rt else 0,
+                key="browse_city_rt",
+                help="מציג רק ערים הנתמכות בחיפוש יד2.",
+            )
+            _rt_fetch_cities = [selected_city_rt]
 
         # Invalidate cached data when city changes
         if st.session_state.get("_rt_loaded_city") != selected_city_rt:
@@ -2348,11 +2529,21 @@ elif page == "📊 עיין בנכסים ביישוב":
             )
 
         if load_btn:
-            with st.spinner(f"טוען מודעות ב{selected_city_rt} מיד2..."):
-                df_rt_raw, rt_err = fetch_yad2_city_listings(selected_city_rt)
+            _fetch_label = selected_city_rt if len(_rt_fetch_cities) == 1 else f"{selected_city_rt} ({len(_rt_fetch_cities)} ערים)"
+            with st.spinner(f"טוען מודעות מ{_fetch_label} מיד2..."):
+                _frames_rt = []
+                rt_err = ""
+                for _fc in _rt_fetch_cities:
+                    _df_c, _err_c = fetch_yad2_city_listings(_fc)
+                    if _err_c and not _frames_rt:
+                        rt_err = _err_c   # only fatal if no city succeeded at all
+                    elif not _df_c.empty:
+                        _df_c["_city"] = _fc
+                        _frames_rt.append(_df_c)
+                df_rt_raw = pd.concat(_frames_rt, ignore_index=True) if _frames_rt else pd.DataFrame()
 
-            if rt_err:
-                st.session_state["_rt_error"] = rt_err
+            if df_rt_raw.empty:
+                st.session_state["_rt_error"] = rt_err or "לא נמצאו מודעות."
                 st.session_state.pop("_rt_df", None)
             else:
                 # Apply ML model to compute predicted price & viability score
@@ -2360,7 +2551,7 @@ elif page == "📊 עיין בנכסים ביישוב":
                 df_ml_rt, _  = load_data()
                 feat_cols_rt = [c for c in df_ml_rt.columns if c != "dealAmount"]
 
-                city_mask_rt = df_all_ref["settlementNameHeb"] == selected_city_rt
+                city_mask_rt = df_all_ref["settlementNameHeb"].isin(_rt_fetch_cities)
                 sub_ml_rt    = df_ml_rt[city_mask_rt]
                 fvec_base_rt = (
                     sub_ml_rt[feat_cols_rt].median()
@@ -2416,6 +2607,48 @@ elif page == "📊 עיין בנכסים ביישוב":
         elif "_rt_df" in st.session_state and st.session_state.get("_rt_loaded_city") == selected_city_rt:
             df_rt = st.session_state["_rt_df"].copy()
 
+            # ── Polygon mode: filter by pre-drawn selection polygon ────────────
+            if rt_area_mode == "✏️ פוליגון על מפה":
+                _poly_rt = st.session_state.get("_rt_select_polygon")
+                if _poly_rt and "_lat" in df_rt.columns:
+                    _valid_coords = df_rt.dropna(subset=["_lat", "_lon"])
+                    _in_poly_rt = _pts_in_polygon(
+                        _valid_coords["_lat"].values,
+                        _valid_coords["_lon"].values,
+                        _poly_rt,
+                    )
+                    df_rt = _valid_coords[_in_poly_rt].copy()
+
+                    # Show read-only map with polygon outline + listing dots
+                    try:
+                        from streamlit_folium import st_folium as _st_folium_disp
+                        import folium as _folium_disp
+                        _rt_has_coords_d = not df_rt.empty and "_lat" in df_rt.columns
+                        _ctr_lat = float(df_rt["_lat"].dropna().mean()) if _rt_has_coords_d else 31.8
+                        _ctr_lon = float(df_rt["_lon"].dropna().mean()) if _rt_has_coords_d else 34.9
+                        _fmap_disp = _folium_disp.Map(location=[_ctr_lat, _ctr_lon],
+                                                       zoom_start=13, tiles="OpenStreetMap")
+                        _folium_disp.Polygon(
+                            locations=[[p[1], p[0]] for p in _poly_rt],
+                            color="#ff4b4b", fill=False, weight=2,
+                        ).add_to(_fmap_disp)
+                        for _, _rw in df_rt.dropna(subset=["_lat", "_lon"]).iterrows():
+                            _folium_disp.CircleMarker(
+                                location=[_rw["_lat"], _rw["_lon"]],
+                                radius=5, color="#006AFF", fill=True,
+                                fill_color="#006AFF", fill_opacity=0.6, weight=1,
+                                tooltip=f"{int(_rw['מחיר מבוקש (₪)']):,} ₪",
+                            ).add_to(_fmap_disp)
+                        _st_folium_disp(_fmap_disp, key="rt_filtered_map",
+                                         use_container_width=True, height=400)
+                    except ImportError:
+                        pass
+                    st.caption(f"🔍 {len(df_rt)} מודעות בתוך הפוליגון")
+                else:
+                    st.info("ממתין לציור פוליגון — מוצגות כל המודעות")
+
+                st.markdown("---")
+
             sm1, sm2, sm3, sm4 = st.columns(4)
             sm1.metric("מודעות פעילות", len(df_rt),
                        help="כמה מודעות יד2 פעילות נמצאו בעיר זו.")
@@ -2445,71 +2678,144 @@ elif page == "📊 עיין בנכסים ביישוב":
             _av = df_rt[_area_col].dropna()
             _av = _av[(_av >= 20) & (_av <= 600)]
 
-            # Row 1 — price (min / max) + rooms (min / max)
-            fc1, fc2, fc3, fc4 = st.columns(4)
-            with fc1:
-                p_from = st.number_input(
-                    "💰 מחיר מינימום (₪ מ')",
-                    min_value=0.0, max_value=200.0,
-                    value=round(float(_pv.min()) / 1e6, 1) if len(_pv) else 0.0,
-                    step=0.1, format="%.1f", key="rt_p_from",
-                )
-            with fc2:
-                p_to = st.number_input(
-                    "מחיר מקסימום (₪ מ')",
-                    min_value=0.0, max_value=200.0,
-                    value=round(float(_pv.max()) / 1e6 + 0.1, 1) if len(_pv) else 200.0,
-                    step=0.1, format="%.1f", key="rt_p_to",
-                )
-            with fc3:
-                r_from = st.number_input(
-                    "🛏️ חדרים מינימום",
-                    min_value=1.0, max_value=10.0,
-                    value=float(_rv.min()) if len(_rv) else 1.0,
-                    step=0.5, format="%.1f", key="rt_r_from",
-                )
-            with fc4:
-                r_to = st.number_input(
-                    "חדרים מקסימום",
-                    min_value=1.0, max_value=10.0,
-                    value=float(_rv.max()) if len(_rv) else 10.0,
-                    step=0.5, format="%.1f", key="rt_r_to",
-                )
+            _filter_mode_rt = st.radio(
+                "🔍 מצב סינון:",
+                ["✋ ידני", "🤖 AI לפי הפרופיל שלי"],
+                horizontal=True, key="rt_filter_mode",
+                index=1,
+            )
 
-            # Row 2 — area (min / max)
-            fa1, fa2, _, _ = st.columns(4)
-            with fa1:
-                a_from = st.number_input(
-                    '📐 שטח מינימום (מ"ר)',
-                    min_value=0, max_value=1000,
-                    value=int(_av.min()) if len(_av) else 0,
-                    step=5, key="rt_a_from",
-                )
-            with fa2:
-                a_to = st.number_input(
-                    'שטח מקסימום (מ"ר)',
-                    min_value=0, max_value=1000,
-                    value=int(_av.max()) + 5 if len(_av) else 1000,
-                    step=5, key="rt_a_to",
-                )
+            if _filter_mode_rt == "🤖 AI לפי הפרופיל שלי":
+                _prof_budget = st.session_state.get("profile_budget", 2_000_000)
+                _prof_goal   = st.session_state.get("profile_goal", "💵 תשואה שוטפת (השכרה)")
+                _is_rental   = "תשואה" in _prof_goal
 
-            # Apply all filters
-            if len(_pv):
-                df_rt_filtered = df_rt_filtered[
-                    df_rt_filtered[_price_col].between(p_from * 1e6, p_to * 1e6)
-                ]
-            if len(_rv):
-                df_rt_filtered = df_rt_filtered[
-                    df_rt_filtered[_rooms_col].isna() |
-                    df_rt_filtered[_rooms_col].between(r_from, r_to)
-                ]
-            if len(_av):
-                df_rt_filtered = df_rt_filtered[
-                    df_rt_filtered[_area_col].isna() |
-                    df_rt_filtered[_area_col].between(a_from, a_to)
-                ]
+                if not st.session_state.get("profile_configured", False):
+                    st.warning("⚠️ הפרופיל טרם הוגדר — עבור לדף **הפרופיל שלי** כדי להגדיר תקציב ומטרה.")
+                    df_rt_filtered = df_rt.sort_values("ציון כדאיות", ascending=False).copy()
+                else:
+                    if _is_rental:
+                        _rooms_range  = (1.5, 3.5)
+                        _rooms_label  = "1.5–3.5"
+                        _rooms_reason = "דירות קטנות-בינוניות — ביקוש גבוה להשכרה ותשואה % גבוהה ביחס למחיר"
+                        _goal_label   = "תשואה שוטפת (השכרה)"
+                    else:
+                        _rooms_range  = (3.0, 6.0)
+                        _rooms_label  = "3–6"
+                        _rooms_reason = "נכסים גדולים יותר — פוטנציאל עליית ערך גבוה ובסיס קונים רחב יותר במכירה"
+                        _goal_label   = "עליית ערך (מכירה ברווח)"
 
-            df_rt_filtered = df_rt_filtered.sort_values("ציון כדאיות", ascending=False)
+                    # Show current filter settings as read-only summary
+                    fm1, fm2, fm3, fm4 = st.columns(4)
+                    fm1.metric("💰 מחיר עד", f"{_prof_budget:,} ₪",
+                               help="תקציב מקסימלי מהפרופיל שלך.")
+                    fm2.metric("🛏️ חדרים", _rooms_label,
+                               help=f"מותאם למטרת {_goal_label}.")
+                    fm3.metric("📐 שטח", "ללא הגבלה",
+                               help="AI לא מסנן לפי שטח — ניתן לעבור למצב ידני לסינון מדויק.")
+                    fm4.metric("🎯 מטרה", _goal_label.split("(")[0].strip(),
+                               help="עדכן בדף הפרופיל שלי.")
+
+                    with st.expander("💡 איך המסנן הגיע להחלטות האלה?"):
+                        rtl(f"""
+                        <p>המסנן יישם <strong>3 כללים</strong> מהפרופיל שלך:</p>
+                        <ol>
+                          <li>
+                            <strong>תקציב — מסנן קשיח:</strong>
+                            הוסרו כל המודעות מעל <strong>{_prof_budget:,} ₪</strong>.
+                            זהו הגבול שהגדרת בפרופיל — אין טעם להציג מה שלא בטווח.
+                          </li>
+                          <li>
+                            <strong>חדרים — מותאם למטרה "{_goal_label}":</strong>
+                            נשמרו רק מודעות עם {_rooms_label} חדרים (או ללא מידע על חדרים).
+                            ההיגיון: {_rooms_reason}.
+                          </li>
+                          <li>
+                            <strong>מיון — ציון כדאיות יורד:</strong>
+                            ציון גבוה = מחיר מבוקש <em>נמוך</em> ממחיר השוק שהמודל חזה.
+                            כך המודעות ה"זולות ביחס לשוק" עולות לראש הרשימה.
+                          </li>
+                        </ol>
+                        <p style="color:#696969;font-size:0.85rem;">
+                          ניתן לשנות תקציב ומטרה בדף <strong>הפרופיל שלי</strong>,
+                          או לעבור ל<strong>סינון ידני</strong> לשליטה מלאה.
+                        </p>
+                        """)
+
+                    # Apply filters
+                    df_rt_filtered = df_rt[df_rt[_price_col] <= _prof_budget].copy()
+                    df_rt_filtered = df_rt_filtered[
+                        df_rt_filtered[_rooms_col].isna() |
+                        df_rt_filtered[_rooms_col].between(*_rooms_range)
+                    ]
+                    df_rt_filtered = df_rt_filtered.sort_values("ציון כדאיות", ascending=False)
+
+            else:
+                # ── Manual filter UI ──────────────────────────────────────────
+                # Row 1 — price (min / max) + rooms (min / max)
+                fc1, fc2, fc3, fc4 = st.columns(4)
+                with fc1:
+                    p_from = st.number_input(
+                        "💰 מחיר מינימום (₪ מ')",
+                        min_value=0.0, max_value=200.0,
+                        value=round(float(_pv.min()) / 1e6, 1) if len(_pv) else 0.0,
+                        step=0.1, format="%.1f", key="rt_p_from",
+                    )
+                with fc2:
+                    p_to = st.number_input(
+                        "מחיר מקסימום (₪ מ')",
+                        min_value=0.0, max_value=200.0,
+                        value=round(float(_pv.max()) / 1e6 + 0.1, 1) if len(_pv) else 200.0,
+                        step=0.1, format="%.1f", key="rt_p_to",
+                    )
+                with fc3:
+                    r_from = st.number_input(
+                        "🛏️ חדרים מינימום",
+                        min_value=1.0, max_value=10.0,
+                        value=float(_rv.min()) if len(_rv) else 1.0,
+                        step=0.5, format="%.1f", key="rt_r_from",
+                    )
+                with fc4:
+                    r_to = st.number_input(
+                        "חדרים מקסימום",
+                        min_value=1.0, max_value=10.0,
+                        value=float(_rv.max()) if len(_rv) else 10.0,
+                        step=0.5, format="%.1f", key="rt_r_to",
+                    )
+
+                # Row 2 — area (min / max)
+                fa1, fa2, _, _ = st.columns(4)
+                with fa1:
+                    a_from = st.number_input(
+                        '📐 שטח מינימום (מ"ר)',
+                        min_value=0, max_value=1000,
+                        value=int(_av.min()) if len(_av) else 0,
+                        step=5, key="rt_a_from",
+                    )
+                with fa2:
+                    a_to = st.number_input(
+                        'שטח מקסימום (מ"ר)',
+                        min_value=0, max_value=1000,
+                        value=int(_av.max()) + 5 if len(_av) else 1000,
+                        step=5, key="rt_a_to",
+                    )
+
+                # Apply manual filters
+                if len(_pv):
+                    df_rt_filtered = df_rt_filtered[
+                        df_rt_filtered[_price_col].between(p_from * 1e6, p_to * 1e6)
+                    ]
+                if len(_rv):
+                    df_rt_filtered = df_rt_filtered[
+                        df_rt_filtered[_rooms_col].isna() |
+                        df_rt_filtered[_rooms_col].between(r_from, r_to)
+                    ]
+                if len(_av):
+                    df_rt_filtered = df_rt_filtered[
+                        df_rt_filtered[_area_col].isna() |
+                        df_rt_filtered[_area_col].between(a_from, a_to)
+                    ]
+                df_rt_filtered = df_rt_filtered.sort_values("ציון כדאיות", ascending=False)
             rtl(f'<p><strong>{len(df_rt_filtered)} מודעות</strong> מוצגות — מדורגות מהכדאית ביותר</p>')
 
             # Build display table — drop שכונה (Yad2 returns regional area name, same for all rows)
@@ -2528,13 +2834,17 @@ elif page == "📊 עיין בנכסים ביישוב":
                     lambda i: f"https://www.yad2.co.il/item/{i}" if i else ""
                 )
 
-            rt_disp_cols = [c for c in [
+            _multi_city_rt = rt_area_mode in ("🗺️ מחוז", "✏️ פוליגון על מפה")
+            if _multi_city_rt and "_city" in show_rt.columns:
+                show_rt = show_rt.rename(columns={"_city": "עיר"})
+            _city_col_rt = ["עיר"] if _multi_city_rt and "עיר" in show_rt.columns else []
+            rt_disp_cols = [c for c in _city_col_rt + [
                 "רחוב", "מס' בית", 'שטח (מ"ר)', "חדרים", "קומה",
                 "מחיר מבוקש (₪)", "מחיר חזוי (₪)", "ציון כדאיות", "🔗 קישור",
             ] if c in show_rt.columns]
 
             st.dataframe(
-                show_rt[rt_disp_cols].head(50),
+                show_rt[rt_disp_cols].head(100),
                 column_config={
                     "ציון כדאיות": st.column_config.ProgressColumn(
                         "ציון כדאיות (0-10)", min_value=0, max_value=10, format="%.1f",
