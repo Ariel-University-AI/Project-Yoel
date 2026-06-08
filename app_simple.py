@@ -992,6 +992,14 @@ def geocode_address(query: str) -> tuple:
     return None, None
 
 
+# ─── Profile defaults ──────────────────────────────────────────────────────────
+if "profile_budget" not in st.session_state:
+    st.session_state["profile_budget"] = 2_000_000
+if "profile_goal" not in st.session_state:
+    st.session_state["profile_goal"] = "💵 תשואה שוטפת (השכרה)"
+if "profile_configured" not in st.session_state:
+    st.session_state["profile_configured"] = False
+
 # ─── Sidebar navigation ────────────────────────────────────────────────────────
 
 # Apply any pending navigation request BEFORE the radio widget is created
@@ -1011,6 +1019,7 @@ with st.sidebar:
         "ניווט:",
         [
             "🏠 עמוד הבית",
+            "👤 הפרופיל שלי",
             "🔍 מצא אזור להשקעה",
             "🏡 בדוק נכס ספציפי",
             "📊 עיין בנכסים ביישוב",
@@ -1045,6 +1054,27 @@ if page == "🏠 עמוד הבית":
       </p>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── Profile CTA banner ────────────────────────────────────────────────────
+    if not st.session_state["profile_configured"]:
+        st.markdown("""
+        <div dir="rtl" style="
+          background:#FFF8E1; border:2px solid #FFC107; border-radius:10px;
+          padding:18px 24px; margin-bottom:20px; text-align:right;
+        ">
+          <b style="font-size:1.05rem;">👤 טרם הגדרת פרופיל משקיע אישי</b><br>
+          <span style="font-size:0.92rem; color:#555;">
+            הגדר תקציב ומטרת השקעה כדי שהכלי יוכל להתאים את ההמלצות בדיוק עבורך.
+          </span>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👤 הגדר פרופיל עכשיו ←", key="home_goto_profile", type="primary"):
+            st.session_state["_nav_request"] = "👤 הפרופיל שלי"
+            st.rerun()
+        st.markdown("---")
+    else:
+        _goal_short = "תשואה שוטפת" if "תשואה" in st.session_state["profile_goal"] else "עליית ערך"
+        st.success(f"👤 פרופיל פעיל: תקציב **{st.session_state['profile_budget']:,} ₪** · מטרה: **{_goal_short}**")
 
     rtl("<h3>🚀 במה הכלי יכול לעזור לך?</h3>")
 
@@ -1291,6 +1321,42 @@ if page == "🏠 עמוד הבית":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PAGE — PROFILE
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "👤 הפרופיל שלי":
+
+    st.session_state["profile_configured"] = True
+
+    rtl('<h1>👤 הפרופיל שלי</h1>')
+    rtl('<p style="color:#555;">הגדרות אלו משמשות את כל הכלים באפליקציה. שנה אותן בכל עת.</p>')
+
+    with st.container(border=True):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.number_input(
+                "💰 תקציב מקסימלי (₪)",
+                min_value=300_000, max_value=10_000_000,
+                step=100_000, format="%d",
+                key="profile_budget",
+                help="המחיר המקסימלי שאתה מוכן לשלם. אזורים שמחירם הממוצע גבוה יותר יסוננו.",
+            )
+        with col_b:
+            st.radio(
+                "🎯 מה המטרה שלך?",
+                ["💵 תשואה שוטפת (השכרה)", "📈 עליית ערך (מכירה ברווח)"],
+                key="profile_goal",
+                help="תשואה שוטפת = שכ\"ד חודשי. עליית ערך = קנה בזול, מכור ביוקר.",
+            )
+
+    st.success("✅ הפרופיל נשמר אוטומטית.")
+
+    st.markdown("---")
+    if st.button("🔍 עבור למצא אזור להשקעה ←", key="profile_goto_find", type="primary"):
+        st.session_state["_nav_request"] = "🔍 מצא אזור להשקעה"
+        st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — FIND AREA
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "🔍 מצא אזור להשקעה":
@@ -1299,53 +1365,37 @@ elif page == "🔍 מצא אזור להשקעה":
 
     # ── Explanation bar ───────────────────────────────────────────────────────
     with st.expander("📖 הסבר על הכלי — לחץ לפתיחה / סגירה", expanded=True):
-        about_col, inputs_col = st.columns(2)
+        rtl("""
+        <h4>🗺️ מה הכלי הזה עושה?</h4>
+        <p>הכלי עוזר לך למצוא <strong>אזורים מומלצים להשקעה</strong>
+        מבלי שתצטרך לדעת נדל"ן מראש.</p>
+        <p>הוא סורק אלפי עסקאות אמיתיות מרשות המיסים, ומחשב לכל אזור
+        <strong>ציון כדאיות</strong> (0–10) לפי שלושה גורמים: כמה זול נמכרו
+        נכסים שם, האם המחירים עולים, וכמה פעיל השוק.</p>
+        <p><strong>מה תקבל בסוף?</strong><br>
+        רשימה של אזורים ממוינת מהמומלץ ביותר לפחות — עם מחיר ממוצע,
+        מגמה שנתית וציון.</p>
+        <p style="color:#555;font-size:0.9rem;">💡 כדי לשנות תקציב או מטרת השקעה — עבור ל-<strong>הפרופיל שלי</strong>.</p>
+        """)
 
-        with about_col:
-            rtl("""
-            <h4>🗺️ מה הכלי הזה עושה?</h4>
-            <p>הכלי עוזר לך למצוא <strong>אזורים מומלצים להשקעה</strong>
-            מבלי שתצטרך לדעת נדל"ן מראש.</p>
-            <p>הוא סורק אלפי עסקאות אמיתיות מרשות המיסים, ומחשב לכל אזור
-            <strong>ציון כדאיות</strong> (0–100) לפי שלושה גורמים: כמה זול נמכרו
-            נכסים שם, האם המחירים עולים, וכמה פעיל השוק.</p>
-            <p><strong>מה תקבל בסוף?</strong><br>
-            רשימה של אזורים ממוינת מהמומלץ ביותר לפחות — עם מחיר ממוצע,
-            מגמה שנתית וציון.</p>
-            """)
+    # ── Profile summary ───────────────────────────────────────────────────────
+    budget = st.session_state["profile_budget"]
+    goal   = st.session_state["profile_goal"]
 
-        with inputs_col:
-            rtl("""
-            <h4>📥 מה למלא?</h4>
-            <p>🔹 <strong>תקציב מקסימלי (₪)</strong><br>
-            הסכום המרבי שאתה מוכן לשלם עבור דירה.
-            אזורים שהמחיר הממוצע שלהם גבוה מסכום זה יסוננו אוטומטית —
-            כי סביר שלא תמצא שם דירה בתקציב.</p>
-            <p>🔹 <strong>מטרת ההשקעה</strong></p>
-            <ul>
-              <li><em>תשואה שוטפת (שכ"ד)</em> — אתה רוצה לקנות ולהשכיר, ולקבל כסף כל חודש.
-              הכלי יחפש אזורים עם ביקוש גבוה לשכירות.</li>
-              <li><em>עליית ערך (מכירה ברווח)</em> — אתה רוצה לקנות בזול, לחכות שהנכס
-              יתייקר, ולמכור. הכלי יחפש אזורים עם מגמת עלייה חזקה.</li>
-            </ul>
-            """)
-
-    # ── Inputs ────────────────────────────────────────────────────────────────
     with st.container(border=True):
-        col_a, col_b = st.columns(2)
-        with col_a:
-            budget = st.number_input(
-                "💰 תקציב מקסימלי (₪)",
-                min_value=300_000, max_value=10_000_000,
-                value=2_000_000, step=100_000, format="%d",
-                help="המחיר המקסימלי שאתה מוכן לשלם. אזורים שמחירם הממוצע גבוה יותר יסוננו.",
-            )
-        with col_b:
-            goal = st.radio(
-                "🎯 מה המטרה שלך?",
-                ["💵 תשואה שוטפת (השכרה)", "📈 עליית ערך (מכירה ברווח)"],
-                help="תשואה שוטפת = שכ\"ד חודשי. עליית ערך = קנה בזול, מכור ביוקר.",
-            )
+        _pc1, _pc2 = st.columns([4, 1])
+        with _pc1:
+            rtl(f"""
+            <p style="margin:0;">
+              👤 <strong>הפרופיל שלך:</strong> &nbsp;
+              💰 תקציב: <strong>{budget:,} ₪</strong> &nbsp;|&nbsp;
+              🎯 מטרה: <strong>{goal}</strong>
+            </p>
+            """)
+        with _pc2:
+            if st.button("✏️ ערוך", key="find_edit_profile"):
+                st.session_state["_nav_request"] = "👤 הפרופיל שלי"
+                st.rerun()
 
     # ── Compute ───────────────────────────────────────────────────────────────
     stats    = compute_area_stats()
@@ -1371,23 +1421,14 @@ elif page == "🔍 מצא אזור להשקעה":
         top, best = filtered.head(15), filtered.iloc[0]
 
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("אזורים בתקציב",    len(filtered))
-        m2.metric("האזור המוביל",     best["settlementNameHeb"])
-        m3.metric("ציון מוביל",       f"{best['score']:.1f} / 10")
-        m4.metric("מחיר ממוצע מוביל", f"{best['avg_price']:,.0f} ₪")
-
-        with m1:
-            with st.popover("❓"):
-                rtl("<p>כמה אזורים נמצאו בתוך התקציב שהגדרת (עם לפחות 10 עסקאות בנתונים).</p>")
-        with m2:
-            with st.popover("❓"):
-                rtl("<p>האזור עם ציון הכדאיות הגבוה ביותר עבורך.</p>")
-        with m3:
-            with st.popover("❓"):
-                rtl("<p>ציון בין 0–10. ירוק = מומלץ מאוד, אדום = פחות מומלץ.</p>")
-        with m4:
-            with st.popover("❓"):
-                rtl("<p>מחיר ממוצע של דירות באזור המוביל לפי עסקאות אמיתיות.</p>")
+        m1.metric("אזורים בתקציב",    len(filtered),
+                  help="כמה אזורים נמצאו בתוך התקציב שהגדרת (עם לפחות 10 עסקאות בנתונים).")
+        m2.metric("האזור המוביל",     best["settlementNameHeb"],
+                  help="האזור עם ציון הכדאיות הגבוה ביותר עבורך.")
+        m3.metric("ציון מוביל",       f"{best['score']:.1f} / 10",
+                  help="ציון בין 0–10. ירוק = מומלץ מאוד, אדום = פחות מומלץ.")
+        m4.metric("מחיר ממוצע מוביל", f"{best['avg_price']:,.0f} ₪",
+                  help="מחיר ממוצע של דירות באזור המוביל לפי עסקאות אמיתיות.")
 
         st.markdown("---")
         rtl('<h3>🏆 האזורים המומלצים ביותר עבורך</h3>')
