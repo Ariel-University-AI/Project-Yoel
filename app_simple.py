@@ -199,7 +199,7 @@ def compute_predictions():
     df_d  = df_d.copy()
     df_d["predicted"]       = mdl.predict(X)
     df_d["gap_pct"]         = (df_d["predicted"] - df_d["dealAmount"]) / df_d["dealAmount"] * 100
-    df_d["viability_score"] = (50 + df_d["gap_pct"] * 1.5).clip(0, 100).round(1)
+    df_d["viability_score"] = ((50 + df_d["gap_pct"] * 1.5) / 10).clip(0, 10).round(1)
     return df_d
 
 
@@ -1182,7 +1182,7 @@ if page == "🏠 עמוד הבית":
 
     with st.expander("🎯 ציון כדאיות — מה זה ולמה חשוב?", expanded=True):
         rtl("""
-        <p><strong>ציון כדאיות</strong> הוא מספר בין <strong>0 ל-100</strong> שמסכם
+        <p><strong>ציון כדאיות</strong> הוא מספר בין <strong>0 ל-10</strong> שמסכם
         <strong>כמה כדאי לקנות נכס מסוים</strong>.</p>
         <table style="width:100%; border-collapse:collapse; margin:10px 0;">
           <tr style="background:#F5F5F5;">
@@ -1192,19 +1192,19 @@ if page == "🏠 עמוד הבית":
             <th style="padding:8px; border:1px solid #E0E0E0; text-align:right;">מה לעשות?</th>
           </tr>
           <tr>
-            <td style="padding:8px; border:1px solid #E0E0E0;">70–100</td>
+            <td style="padding:8px; border:1px solid #E0E0E0;">7–10</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">🟢 ירוק</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">כדאי מאוד</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">מומלץ לבחון ברצינות</td>
           </tr>
           <tr style="background:#fafafa;">
-            <td style="padding:8px; border:1px solid #E0E0E0;">45–69</td>
+            <td style="padding:8px; border:1px solid #E0E0E0;">4.5–7</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">🟡 צהוב</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">סביר, דורש בדיקה</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">בדוק לעומק לפני החלטה</td>
           </tr>
           <tr>
-            <td style="padding:8px; border:1px solid #E0E0E0;">0–44</td>
+            <td style="padding:8px; border:1px solid #E0E0E0;">0–4.5</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">🔴 אדום</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">לא מומלץ</td>
             <td style="padding:8px; border:1px solid #E0E0E0;">המחיר כנראה גבוה מדי</td>
@@ -1361,10 +1361,10 @@ elif page == "🔍 מצא אזור להשקעה":
         gap_sc, trend_sc, liq_sc = _minmax(filtered["avg_gap"]), _minmax(filtered["trend_pct_yr"]), _minmax(filtered["deal_count"])
 
         if "עליית ערך" in goal:
-            filtered["score"] = (0.30 * gap_sc + 0.50 * trend_sc + 0.20 * liq_sc).round(1)
+            filtered["score"] = ((0.30 * gap_sc + 0.50 * trend_sc + 0.20 * liq_sc) / 10).round(1)
             weight_desc = "פער מחיר 30% + מגמה 50% + נזילות 20%"
         else:
-            filtered["score"] = (0.60 * gap_sc + 0.20 * trend_sc + 0.20 * liq_sc).round(1)
+            filtered["score"] = ((0.60 * gap_sc + 0.20 * trend_sc + 0.20 * liq_sc) / 10).round(1)
             weight_desc = "פער מחיר 60% + מגמה 20% + נזילות 20%"
 
         filtered = filtered.sort_values("score", ascending=False)
@@ -1373,7 +1373,7 @@ elif page == "🔍 מצא אזור להשקעה":
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("אזורים בתקציב",    len(filtered))
         m2.metric("האזור המוביל",     best["settlementNameHeb"])
-        m3.metric("ציון מוביל",       f"{best['score']:.0f} / 100")
+        m3.metric("ציון מוביל",       f"{best['score']:.1f} / 10")
         m4.metric("מחיר ממוצע מוביל", f"{best['avg_price']:,.0f} ₪")
 
         with m1:
@@ -1384,7 +1384,7 @@ elif page == "🔍 מצא אזור להשקעה":
                 rtl("<p>האזור עם ציון הכדאיות הגבוה ביותר עבורך.</p>")
         with m3:
             with st.popover("❓"):
-                rtl("<p>ציון בין 0–100. ירוק = מומלץ מאוד, אדום = פחות מומלץ.</p>")
+                rtl("<p>ציון בין 0–10. ירוק = מומלץ מאוד, אדום = פחות מומלץ.</p>")
         with m4:
             with st.popover("❓"):
                 rtl("<p>מחיר ממוצע של דירות באזור המוביל לפי עסקאות אמיתיות.</p>")
@@ -1409,7 +1409,7 @@ elif page == "🔍 מצא אזור להשקעה":
             df_show,
             column_config={
                 "ציון כדאיות": st.column_config.ProgressColumn(
-                    "ציון כדאיות (0-100)", min_value=0, max_value=100, format="%.0f",
+                    "ציון כדאיות (0-10)", min_value=0, max_value=10, format="%.1f",
                 ),
                 "מחיר ממוצע (₪)": st.column_config.NumberColumn(format="₪%,d"),
                 "פער ממחיר שוק": st.column_config.NumberColumn(
@@ -1439,7 +1439,7 @@ elif page == "🔍 מצא אזור להשקעה":
                 <th style="padding:8px;border:1px solid #E0E0E0;text-align:right;">הסבר</th>
               </tr>
               <tr><td style="padding:8px;border:1px solid #E0E0E0;"><strong>ציון כדאיות</strong></td>
-                  <td style="padding:8px;border:1px solid #E0E0E0;">0–100. ירוק = מומלץ, אדום = פחות</td></tr>
+                  <td style="padding:8px;border:1px solid #E0E0E0;">0–10. ירוק = מומלץ, אדום = פחות</td></tr>
               <tr><td style="padding:8px;border:1px solid #E0E0E0;"><strong>מחיר ממוצע</strong></td>
                   <td style="padding:8px;border:1px solid #E0E0E0;">ממוצע עסקאות בפועל באזור</td></tr>
               <tr><td style="padding:8px;border:1px solid #E0E0E0;"><strong>פער ממחיר שוק (%)</strong></td>
@@ -1459,9 +1459,9 @@ elif page == "🔍 מצא אזור להשקעה":
         fig = px.bar(
             df_show.head(12), x="יישוב", y="ציון כדאיות",
             color="ציון כדאיות", color_continuous_scale="RdYlGn",
-            range_color=[0, 100], height=370, text="ציון כדאיות",
+            range_color=[0, 10], height=370, text="ציון כדאיות",
         )
-        fig.update_traces(texttemplate="%{text:.0f}", textposition="outside")
+        fig.update_traces(texttemplate="%{text:.1f}", textposition="outside")
         fig.update_layout(coloraxis_showscale=False, xaxis_tickangle=-30, margin=dict(t=20, b=60))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -1469,7 +1469,7 @@ elif page == "🔍 מצא אזור להשקעה":
             fig2 = px.scatter(
                 filtered.head(30), x="avg_price", y="trend_pct_yr",
                 size="deal_count", color="score",
-                color_continuous_scale="RdYlGn", range_color=[0, 100],
+                color_continuous_scale="RdYlGn", range_color=[0, 10],
                 hover_name="settlementNameHeb",
                 labels={"avg_price": "מחיר ממוצע (₪)", "trend_pct_yr": "מגמה (%/שנה)",
                         "deal_count": "עסקאות", "score": "ציון כדאיות"},
@@ -1751,15 +1751,15 @@ elif page == "🏡 בדוק נכס ספציפי":
         socio_score  = (s_avg - s_min) / (s_max - s_min) * 100 if s_max > s_min else 50.0
         price_score  = min(100.0, max(0.0, 50.0 + gap_pct * 2.5))
         liq_score    = min(100.0, n_deals / 50.0 * 100.0)
-        viability    = round(0.60 * price_score + 0.25 * socio_score + 0.15 * liq_score, 1)
+        viability    = round((0.60 * price_score + 0.25 * socio_score + 0.15 * liq_score) / 10, 1)
 
         st.markdown("---")
         rtl('<h2>📊 תוצאות הניתוח</h2>')
 
-        if viability >= 70:
+        if viability >= 7.0:
             verdict_class, verdict_icon, verdict_text = "verdict-good", "🟢", "עסקה טובה!"
             verdict_detail = "המחיר נראה הוגן או אפילו נמוך מהשוק."
-        elif viability >= 45:
+        elif viability >= 4.5:
             verdict_class, verdict_icon, verdict_text = "verdict-ok", "🟡", "עסקה סבירה"
             verdict_detail = "המחיר קרוב לשוק. בדוק לעומק לפני החלטה."
         else:
@@ -1768,7 +1768,7 @@ elif page == "🏡 בדוק נכס ספציפי":
 
         st.markdown(
             f'<div class="{verdict_class}">'
-            f'<div style="font-size:3rem;">{verdict_icon} {viability:.0f} / 100</div>'
+            f'<div style="font-size:3rem;">{verdict_icon} {viability:.1f} / 10</div>'
             f'<div dir="rtl" style="font-size:1.5rem;font-weight:800;margin-top:8px;">{verdict_text}</div>'
             f'<div dir="rtl" style="font-size:1rem;color:#555;margin-top:4px;">{verdict_detail}</div>'
             f'</div>',
@@ -2111,8 +2111,8 @@ elif page == "📊 עיין בנכסים ביישוב":
                    help="ממוצע מחירי המכירה בפועל — לא מחיר מבוקש!")
         sm3.metric("שטח ממוצע",         f"{df_city['assetArea'].mean():.0f} מ\"ר",
                    help="שטח ממוצע של דירה שנמכרה בעיר.")
-        sm4.metric("ציון כדאיות ממוצע", f"{df_city['viability_score'].mean():.1f} / 100",
-                   help="מעל 50 = בממוצע נמכרו מתחת לשוק.")
+        sm4.metric("ציון כדאיות ממוצע", f"{df_city['viability_score'].mean():.1f} / 10",
+                   help="מעל 5 = בממוצע נמכרו מתחת לשוק.")
 
         st.markdown("---")
         rtl('<h3>סינון עסקאות</h3>')
@@ -2223,7 +2223,7 @@ elif page == "📊 עיין בנכסים ביישוב":
             show[disp_cols].head(30),
             column_config={
                 "ציון כדאיות": st.column_config.ProgressColumn(
-                    "ציון כדאיות (0-100)", min_value=0, max_value=100, format="%.0f",
+                    "ציון כדאיות (0-10)", min_value=0, max_value=10, format="%.1f",
                 ),
                 "מחיר שנמכר (₪)": st.column_config.NumberColumn(format="₪%,d"),
                 "מחיר חזוי (₪)":  st.column_config.NumberColumn(format="₪%,d"),
@@ -2351,8 +2351,8 @@ elif page == "📊 עיין בנכסים ביישוב":
                 def _viab_rt(row):
                     p, pred = row["מחיר מבוקש (₪)"], row["מחיר חזוי (₪)"]
                     if pd.isna(pred) or p <= 0:
-                        return 50.0
-                    return float(np.clip(50.0 + (pred - p) / p * 100 * 1.5, 0, 100))
+                        return 5.0
+                    return float(np.clip((50.0 + (pred - p) / p * 100 * 1.5) / 10, 0, 10))
 
                 df_rt_raw["ציון כדאיות"]   = df_rt_raw.apply(_viab_rt, axis=1).round(1)
                 df_rt_raw["מחיר חזוי (₪)"] = df_rt_raw["מחיר חזוי (₪)"].round(0)
@@ -2386,8 +2386,8 @@ elif page == "📊 עיין בנכסים ביישוב":
                        f"{_avg_s:.0f} מ\"ר" if not pd.isna(_avg_s) else "—",
                        help="שטח ממוצע של הדירות המוצעות.")
             _avg_v = df_rt["ציון כדאיות"].mean()
-            sm4.metric("ציון כדאיות ממוצע", f"{_avg_v:.1f} / 100",
-                       help="מעל 50 = בממוצע המחיר מתחת להערכת המודל.")
+            sm4.metric("ציון כדאיות ממוצע", f"{_avg_v:.1f} / 10",
+                       help="מעל 5 = בממוצע המחיר מתחת להערכת המודל.")
 
             # ── Filters ───────────────────────────────────────────────────────
             st.markdown("---")
@@ -2496,7 +2496,7 @@ elif page == "📊 עיין בנכסים ביישוב":
                 show_rt[rt_disp_cols].head(50),
                 column_config={
                     "ציון כדאיות": st.column_config.ProgressColumn(
-                        "ציון כדאיות (0-100)", min_value=0, max_value=100, format="%.0f",
+                        "ציון כדאיות (0-10)", min_value=0, max_value=10, format="%.1f",
                     ),
                     "מחיר מבוקש (₪)": st.column_config.NumberColumn(format="₪%,d"),
                     "מחיר חזוי (₪)":  st.column_config.NumberColumn(format="₪%,d"),
