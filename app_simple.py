@@ -1088,6 +1088,8 @@ if "profile_budget" not in st.session_state:
     st.session_state["profile_budget"] = 2_000_000
 if "profile_goal" not in st.session_state:
     st.session_state["profile_goal"] = "💵 תשואה שוטפת (השכרה)"
+if "_profile_goal_val" not in st.session_state:
+    st.session_state["_profile_goal_val"] = st.session_state["profile_goal"]
 if "profile_configured" not in st.session_state:
     st.session_state["profile_configured"] = False
 
@@ -1363,17 +1365,80 @@ elif page == "👤 הפרופיל שלי":
     rtl('<p style="color:#555;">הגדרות אלו משמשות את כל הכלים באפליקציה. שנה אותן בכל עת.</p>')
 
     with st.container(border=True):
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.number_input(
-                "💰 תקציב מקסימלי (₪)",
-                min_value=300_000, max_value=10_000_000,
-                value=st.session_state.get("profile_budget", 2_000_000),
-                step=100_000, format="%d",
-                key="profile_budget",
-                help="המחיר המקסימלי שאתה מוכן לשלם. אזורים שמחירם הממוצע גבוה יותר יסוננו.",
-            )
-        with col_b:
+        _budget_mode = st.radio(
+            "💰 שיטת הגדרת תקציב",
+            ["תקציב כולל ישיר", "חישוב לפי הון עצמי + מימון בנק"],
+            horizontal=True,
+            key="profile_budget_mode",
+        )
+
+        st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+
+        if _budget_mode == "תקציב כולל ישיר":
+            col_a, col_b = st.columns(2)
+            with col_a:
+                _direct = st.number_input(
+                    "💰 תקציב מקסימלי (₪)",
+                    min_value=300_000, max_value=10_000_000,
+                    value=st.session_state.get("profile_budget", 2_000_000),
+                    step=100_000, format="%d",
+                    key="profile_budget_direct",
+                    help="המחיר המקסימלי שאתה מוכן לשלם. אזורים שמחירם הממוצע גבוה יותר יסוננו.",
+                )
+                st.session_state["profile_budget"] = int(_direct)
+            with col_b:
+                st.radio(
+                    "🎯 מה המטרה שלך?",
+                    ["💵 תשואה שוטפת (השכרה)", "📈 עליית ערך (מכירה ברווח)"],
+                    key="profile_goal",
+                    help="תשואה שוטפת = שכ\"ד חודשי. עליית ערך = קנה בזול, מכור ביוקר.",
+                )
+
+        else:
+            col_a, col_b, col_c = st.columns([5, 3, 5])
+            with col_a:
+                _equity = st.number_input(
+                    "🏦 הון עצמי (₪)",
+                    min_value=0, max_value=5_000_000,
+                    value=st.session_state.get("profile_equity", 0),
+                    step=50_000, format="%d",
+                    key="profile_equity",
+                    help="הסכום שיש לך להשקיע. ניתן להשאיר 0 אם עדיין לא ידוע.",
+                )
+            with col_b:
+                _fin_pct = st.number_input(
+                    "🏛️ מימון בנקאי (%)",
+                    min_value=0, max_value=90,
+                    value=st.session_state.get("profile_financing_pct", 75),
+                    step=5, format="%d",
+                    key="profile_financing_pct",
+                    help="אחוז מהמחיר הכולל שהבנק מממן. ברירת מחדל: 75%.",
+                )
+            with col_c:
+                if _equity > 0:
+                    _computed = int(_equity / (1 - _fin_pct / 100)) if _fin_pct < 100 else _equity
+                    _computed = max(300_000, min(10_000_000, _computed))
+                    _loan     = _computed - _equity
+                    st.session_state["profile_budget"] = _computed
+                    st.markdown(
+                        f'<div dir="rtl" style="background:#EAF7EE;border:2px solid #1A9E3F;'
+                        f'border-radius:10px;padding:14px 16px;text-align:center;margin-top:26px;">'
+                        f'<div style="font-size:.8rem;color:#555;">תקציב מחושב</div>'
+                        f'<div style="font-size:1.6rem;font-weight:700;color:#1A9E3F;">₪{_computed:,}</div>'
+                        f'<div style="font-size:.75rem;color:#777;">'
+                        f'הון ₪{_equity:,} + הלוואה ₪{_loan:,}'
+                        f'</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        '<div dir="rtl" style="background:#F5F5F5;border:2px dashed #CCC;'
+                        'border-radius:10px;padding:14px 16px;text-align:center;margin-top:26px;">'
+                        '<div style="font-size:.85rem;color:#AAA;">הזן הון עצמי לחישוב</div>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+
             st.radio(
                 "🎯 מה המטרה שלך?",
                 ["💵 תשואה שוטפת (השכרה)", "📈 עליית ערך (מכירה ברווח)"],
@@ -1381,7 +1446,13 @@ elif page == "👤 הפרופיל שלי":
                 help="תשואה שוטפת = שכ\"ד חודשי. עליית ערך = קנה בזול, מכור ביוקר.",
             )
 
-    st.success("✅ הפרופיל נשמר אוטומטית.")
+    # persist goal to a non-widget key so it survives page navigation
+    st.session_state["_profile_goal_val"] = st.session_state.get("profile_goal", "💵 תשואה שוטפת (השכרה)")
+
+    st.success(
+        f"✅ הפרופיל נשמר אוטומטית. "
+        f"תקציב: **{st.session_state.get('profile_budget', 2_000_000):,} ₪**"
+    )
 
     st.markdown("---")
     if st.button("🔍 עבור למצא אזור להשקעה ←", key="profile_goto_find", type="primary"):
@@ -1413,7 +1484,7 @@ elif page == "🔍 מצא אזור להשקעה":
 
     # ── Profile summary ───────────────────────────────────────────────────────
     budget = st.session_state.get("profile_budget", 2_000_000)
-    goal   = st.session_state.get("profile_goal", "💵 תשואה שוטפת (השכרה)")
+    goal   = st.session_state.get("_profile_goal_val", st.session_state.get("profile_goal", "💵 תשואה שוטפת (השכרה)"))
 
     with st.container(border=True):
         _pc1, _pc2 = st.columns([4, 1])
@@ -1451,7 +1522,7 @@ elif page == "🔍 מצא אזור להשקעה":
             weight_desc = "פער מחיר 60% + מגמה 20% + נזילות 20%"
 
         filtered = filtered.sort_values("score", ascending=False)
-        top, best = filtered.head(15), filtered.iloc[0]
+        top, best = filtered.head(5), filtered.iloc[0]
 
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("אזורים בתקציב",    len(filtered),
@@ -1464,11 +1535,29 @@ elif page == "🔍 מצא אזור להשקעה":
                   help="מחיר ממוצע של דירות באזור המוביל לפי עסקאות אמיתיות.")
 
         st.markdown("---")
-        rtl('<h3>🏆 האזורים המומלצים ביותר עבורך</h3>')
+        st.markdown(
+            '<div dir="rtl" style="margin:0.5rem 0 0.25rem 0;">'
+            '<span style="font-size:1.4rem;font-weight:700;line-height:1.3;">🏆 האזורים המומלצים ביותר עבורך</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        show_future = "עליית ערך" in goal
+        _years = 5
+        if show_future:
+            _years = st.slider(
+                "📅 טווח זמן לחיזוי ערך עתידי (שנים)",
+                min_value=1, max_value=20, value=5, step=1,
+                key="future_years_slider",
+                help="שנה את מספר השנים לחישוב הערך העתידי של הנכס לפי מגמת המחירים ההיסטורית.",
+            )
 
         rows = []
         for _, row in top.iterrows():
-            rows.append({
+            _yield_r = max(0.03, min(0.055, 0.04 - float(row["avg_socio"]) * 0.003))
+            _rent    = int(row["avg_price"] * _yield_r / 12)
+            _trend_c = max(-0.15, min(0.15, float(row["trend_pct_yr"]) / 100))
+            _entry   = {
                 "יישוב":            row["settlementNameHeb"],
                 "ציון כדאיות":      row["score"],
                 "מחיר ממוצע (₪)":  int(row["avg_price"]),
@@ -1476,34 +1565,96 @@ elif page == "🔍 מצא אזור להשקעה":
                 "מגמת מחירים/שנה": round(float(row["trend_pct_yr"]), 1),
                 "כמות עסקאות":     int(row["deal_count"]),
                 "מדד סוציו":       round(row["avg_socio"], 2),
-            })
+                "שכירות חודשית":   _rent,
+            }
+            if show_future:
+                # Blend historical trend toward 4% long-term average based on horizon.
+                # At year 1 the historical rate has ~90% weight; at year 10+ only 4% applies.
+                _long_avg  = 0.04
+                _blend     = max(0.0, 1.0 - _years / 10.0)
+                _eff_rate  = _trend_c * _blend + _long_avg * (1.0 - _blend)
+                _entry["ערך עתידי"] = int(row["avg_price"] * (1 + _eff_rate) ** _years)
+            rows.append(_entry)
         df_show = pd.DataFrame(rows)
 
-        st.dataframe(
-            df_show,
-            column_config={
-                "ציון כדאיות": st.column_config.ProgressColumn(
-                    "ציון כדאיות (0-10)", min_value=0, max_value=10, format="%.1f",
-                ),
-                "מחיר ממוצע (₪)": st.column_config.NumberColumn(format="₪%,d"),
-                "פער ממחיר שוק": st.column_config.NumberColumn(
-                    "פער ממחיר שוק (%)",
-                    format="%+.1f%%",
-                    help="ההפרש בין מחיר השוק החזוי ע\"י המודל לבין המחיר שנמכר בפועל. חיובי (+) = נכסים נמכרו מתחת לשווי השוק — הזדמנות! שלילי (−) = נמכרו מעל השוק.",
-                ),
-                "מגמת מחירים/שנה": st.column_config.NumberColumn(
-                    "מגמת מחירים/שנה (%)",
-                    format="%+.1f%%",
-                    help="שינוי אחוזי ממוצע במחירי הדירות מדי שנה (נגזר מרגרסיה על עסקאות היסטוריות). חיובי = מחירים עולים — מתאים להשקעה לעליית ערך. שלילי = מחירים יורדים.",
-                ),
-                "מדד סוציו": st.column_config.NumberColumn(
-                    "מדד סוציו-אקונומי",
-                    help="מדד הלשכה המרכזית לסטטיסטיקה (למ\"ס) המשקף את רמת החיים ביישוב: הכנסות ממוצעות, השכלה, תעסוקה ועוד. ערך גבוה = אזור חזק כלכלית → יציבות מחירים וסיכון נמוך יותר. ערך נמוך = פוטנציאל עלייה גבוה יותר, אך גם סיכון גבוה יותר.",
-                ),
-            },
-            hide_index=True,
-            use_container_width=True,
+        def _sc_color(s: float) -> str:
+            t = max(0.0, min(1.0, s / 10.0))
+            if t <= 0.5:
+                f = t * 2
+                r, g, b = int(217 + f * 28), int(83 + f * 83), int(79 - f * 44)
+            else:
+                f = (t - 0.5) * 2
+                r, g, b = int(245 - f * 219), int(166 - f * 8), int(35 + f * 28)
+            return f"#{r:02x}{g:02x}{b:02x}"
+
+        def _mk_badge(tip: str) -> str:
+            return (
+                '<span style="display:inline-flex;align-items:center;justify-content:center;'
+                'width:14px;height:14px;min-width:14px;border-radius:50%;flex-shrink:0;'
+                'background:#9e9e9e;color:#fff;font-size:10px;font-weight:700;cursor:help;'
+                f'margin-right:4px;" title="{tip}">?</span>'
+            )
+
+        _trs = []
+        for _, _r in df_show.iterrows():
+            _sc  = _r["ציון כדאיות"]
+            _cl  = _sc_color(_sc)
+            _pct = _sc / 10 * 100
+            _gap = _r["פער ממחיר שוק"]
+            _trd = _r["מגמת מחירים/שנה"]
+            _gc  = "#1A9E3F" if _gap >= 0 else "#D9534F"
+            _tc  = "#1A9E3F" if _trd >= 0 else "#D9534F"
+            _row = (
+                f'<tr style="border-bottom:1px solid #f0f0f0;">'
+                f'<td style="padding:8px 12px;text-align:right;font-weight:500;">{_r["יישוב"]}</td>'
+                f'<td style="padding:8px 12px;min-width:140px;">'
+                f'<div style="display:flex;align-items:center;gap:6px;">'
+                f'<div style="flex:1;background:#eee;border-radius:4px;height:8px;overflow:hidden;">'
+                f'<div style="width:{_pct:.0f}%;background:{_cl};height:100%;border-radius:4px;"></div></div>'
+                f'<span style="font-size:.8rem;font-weight:700;color:{_cl};">{_sc:.1f}</span>'
+                f'</div></td>'
+                f'<td style="padding:8px 12px;text-align:right;direction:ltr;">₪{int(_r["מחיר ממוצע (₪)"]):,}</td>'
+                f'<td style="padding:8px 12px;text-align:center;color:{_gc};">{_gap:+.1f}%</td>'
+                f'<td style="padding:8px 12px;text-align:center;color:{_tc};">{_trd:+.1f}%</td>'
+                f'<td style="padding:8px 12px;text-align:center;">{int(_r["כמות עסקאות"])}</td>'
+                f'<td style="padding:8px 12px;text-align:center;">{_r["מדד סוציו"]:.2f}</td>'
+                f'<td style="padding:8px 12px;text-align:right;direction:ltr;">₪{int(_r["שכירות חודשית"]):,}</td>'
+            )
+            if show_future:
+                _row += f'<td style="padding:8px 12px;text-align:right;direction:ltr;">₪{int(_r["ערך עתידי"]):,}</td>'
+            _row += '</tr>'
+            _trs.append(_row)
+
+        _th = "padding:10px 12px;font-weight:600;color:#555;font-size:.8rem;border-bottom:2px solid #e0e0e0;white-space:nowrap;background:#fafafa;"
+        _b_score  = _mk_badge("ציון מ-0 עד 10 לפי שלושה גורמים: פער ממחיר שוק, מגמת מחירים ונזילות שוק. ירוק = מומלץ להשקעה, אדום = פחות מומלץ.")
+        _b_price  = _mk_badge("ממוצע מחירי הדירות שנרשמו בפועל ברשות המיסים ביישוב זה.")
+        _b_gap    = _mk_badge("ההפרש בין מחיר השוק החזוי על-ידי המודל לבין המחיר שנמכר בפועל. חיובי (+) = נמכר מתחת לשווי — הזדמנות! שלילי (−) = נמכר מעל השוק.")
+        _b_trend  = _mk_badge("שינוי אחוזי ממוצע במחירים מדי שנה לפי עסקאות היסטוריות. חיובי = מחירים עולים. שלילי = מחירים יורדים.")
+        _b_count  = _mk_badge("מספר העסקאות שנרשמו ביישוב בנתונים. יותר עסקאות = ניתוח אמין יותר.")
+        _b_socio  = _mk_badge("מדד הלמ'ס לרמת החיים ביישוב (הכנסות, השכלה, תעסוקה). גבוה = יציבות מחירים וסיכון נמוך. נמוך = פוטנציאל עלייה גבוה יותר.")
+        _b_rent   = _mk_badge("הערכת שכירות חודשית לפי תשואה שנתית משתנה לפי רמת האזור (3%–5.5%): אזורים חזקים כלכלית = תשואה נמוכה יותר, אזורים חלשים = תשואה גבוהה יותר. מוחל על המחיר הממוצע שבטבלה. אינה מחליפה הערכה מקצועית.")
+        _b_future = _mk_badge(f"הערכת שווי הנכס לאחר {_years} שנים. שיעור הצמיחה מוגדר כשילוב של המגמה ההיסטורית (מוגבל ±15%/שנה) וממוצע ארוך-טווח של 4%/שנה. ככל שהאופק ארוך יותר, המגמה ההיסטורית מקבלת פחות משקל. ב-10 שנים ומעלה — 4% בלבד.")
+        _tbl = (
+            '<div style="overflow-x:auto;">'
+            '<table style="width:100%;border-collapse:collapse;font-size:.875rem;">'
+            '<thead><tr>'
+            f'<th style="{_th}text-align:right;">יישוב</th>'
+            f'<th style="{_th}text-align:right;min-width:150px;">ציון כדאיות (0-10) {_b_score}</th>'
+            f'<th style="{_th}text-align:right;">מחיר ממוצע (₪) {_b_price}</th>'
+            f'<th style="{_th}text-align:center;">פער ממחיר שוק (%) {_b_gap}</th>'
+            f'<th style="{_th}text-align:center;">מגמת מחירים/שנה (%) {_b_trend}</th>'
+            f'<th style="{_th}text-align:center;">כמות עסקאות {_b_count}</th>'
+            f'<th style="{_th}text-align:center;">מדד סוציו-אקונומי {_b_socio}</th>'
+            f'<th style="{_th}text-align:right;">שכירות חודשית צפויה {_b_rent}</th>'
         )
+        if show_future:
+            _tbl += f'<th style="{_th}text-align:right;">ערך עתידי ({_years} שנ׳) {_b_future}</th>'
+        _tbl += (
+            '</tr></thead>'
+            f'<tbody>{"".join(_trs)}</tbody>'
+            '</table></div>'
+        )
+        st.markdown(_tbl, unsafe_allow_html=True)
 
         with st.expander("📖 איך לקרוא את הטבלה?"):
             rtl("""
@@ -1524,6 +1675,10 @@ elif page == "🔍 מצא אזור להשקעה":
                   <td style="padding:8px;border:1px solid #E0E0E0;">יותר עסקאות = נתון אמין יותר</td></tr>
               <tr><td style="padding:8px;border:1px solid #E0E0E0;"><strong>מדד סוציו-אקונומי</strong></td>
                   <td style="padding:8px;border:1px solid #E0E0E0;">מדד למ"ס לרמת החיים ביישוב. גבוה = אזור חזק → יציבות. נמוך = פוטנציאל עלייה + סיכון</td></tr>
+              <tr><td style="padding:8px;border:1px solid #E0E0E0;"><strong>שכירות חודשית צפויה</strong></td>
+                  <td style="padding:8px;border:1px solid #E0E0E0;">הערכה לפי תשואת שכירות אופיינית (3%–5.5% בשנה לפי רמת האזור). לדוגמה: דירה ב-2,000,000 ₪ עם תשואה 4% ≈ 6,700 ₪/חודש.</td></tr>
+              <tr><td style="padding:8px;border:1px solid #E0E0E0;"><strong>ערך עתידי (5 שנ׳)</strong></td>
+                  <td style="padding:8px;border:1px solid #E0E0E0;">הערכת שווי הנכס לאחר 5 שנים לפי מגמת המחירים ההיסטורית. מגמה חיובית = ציפייה לעלייה. מוגבל ל-±15%/שנה.</td></tr>
             </table>
             """)
 
