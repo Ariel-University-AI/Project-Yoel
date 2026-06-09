@@ -67,93 +67,122 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+  /* ── Google Fonts — Rubik (RTL Hebrew) ──────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap');
+
+  /* ── Madlan Design Tokens ────────────────────────────────────────────── */
+  :root {
+    --primary:       #35BA85;
+    --primary-dark:  #1A6B5A;
+    --primary-light: #E0F5EC;
+    --bg:            #F5F7F6;
+    --white:         #FFFFFF;
+    --border:        #D4EBE2;
+    --text-dark:     #1A2E2A;
+    --text-mid:      #4A5E58;
+    --text-light:    #8A9E98;
+    --red:           #E8334A;
+    --orange:        #F5A623;
+    --shadow:        0 2px 12px rgba(26,107,90,0.08);
+    --shadow-hover:  0 8px 32px rgba(26,107,90,0.18);
+  }
+
+  /* ── Hide Streamlit chrome ───────────────────────────────────────────── */
+  #MainMenu,
+  header[data-testid="stHeader"],
+  [data-testid="stToolbar"],
+  [data-testid="stDecoration"],
+  [data-testid="stSidebarCollapsedControl"],
+  footer { display: none !important; }
+  /* Hide the << collapse button inside the sidebar */
+  section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"],
+  section[data-testid="stSidebar"] button[kind="header"],
+  section[data-testid="stSidebar"] > div > div > button { display: none !important; }
+  .block-container { padding-top: 0.75rem !important; padding-bottom: 2rem; }
+
   /* ── Font & Base ─────────────────────────────────────────────────────── */
   .stApp, body {
-    background-color: #F5F5F5 !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    background-color: var(--bg) !important;
+    font-family: 'Rubik', 'Assistant', -apple-system, sans-serif !important;
+    color: var(--text-dark) !important;
   }
-
-  /* ── Page container ──────────────────────────────────────────────────── */
-  .block-container { padding-top: 1rem; padding-bottom: 2rem; }
 
   /* ── Metrics ─────────────────────────────────────────────────────────── */
-  [data-testid="stMetricValue"]    { font-size: 1.5rem !important; font-weight: 700 !important; color: #2A2A33 !important; }
-  [data-testid="stMetricLabel"]    { font-size: .8rem !important; color: #696969 !important; font-weight: 500 !important; }
+  [data-testid="stMetricValue"] {
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+    color: var(--primary-dark) !important;
+  }
+  [data-testid="stMetricLabel"] {
+    font-size: 0.8rem !important;
+    color: var(--text-light) !important;
+    font-weight: 500 !important;
+  }
   [data-testid="metric-container"] {
-    background: #FFFFFF;
-    border: 1px solid #E0E0E0;
-    border-radius: 8px;
-    padding: 16px 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    transition: box-shadow 0.2s ease;
+    background: var(--white) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 16px !important;
+    padding: 20px 24px !important;
+    box-shadow: var(--shadow) !important;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
   }
   [data-testid="metric-container"]:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+    box-shadow: var(--shadow-hover) !important;
+    transform: translateY(-2px);
   }
 
   /* ── Labels ──────────────────────────────────────────────────────────── */
-  label { font-weight: 600 !important; color: #2A2A33 !important; }
+  label { font-weight: 600 !important; color: var(--text-dark) !important; }
 
   /* ── Verdict boxes ───────────────────────────────────────────────────── */
   .verdict-good {
-    background: #EAF7EE;
-    border: 2px solid #1A9E3F;
-    border-radius: 12px;
+    background: var(--primary-light);
+    border: 2px solid var(--primary);
+    border-radius: 16px;
     padding: 28px 32px;
     text-align: center;
     margin: 16px 0;
-    box-shadow: 0 2px 8px rgba(26,158,63,0.10);
+    box-shadow: 0 2px 8px rgba(53,186,133,0.12);
   }
   .verdict-ok {
     background: #FFF8ED;
-    border: 2px solid #F5A623;
-    border-radius: 12px;
+    border: 2px solid var(--orange);
+    border-radius: 16px;
     padding: 28px 32px;
     text-align: center;
     margin: 16px 0;
     box-shadow: 0 2px 8px rgba(245,166,35,0.10);
   }
   .verdict-bad {
-    background: #FDF0EF;
-    border: 2px solid #D9534F;
-    border-radius: 12px;
+    background: #FEF0F2;
+    border: 2px solid var(--red);
+    border-radius: 16px;
     padding: 28px 32px;
     text-align: center;
     margin: 16px 0;
-    box-shadow: 0 2px 8px rgba(217,83,79,0.10);
+    box-shadow: 0 2px 8px rgba(232,51,74,0.10);
   }
 
   /* ── Cards / bordered containers ─────────────────────────────────────── */
   [data-testid="stVerticalBlockBorderWrapper"] > div {
-    border-radius: 8px !important;
-    border-color: #E0E0E0 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
-    background: #FFFFFF !important;
+    border-radius: 16px !important;
+    border-color: var(--border) !important;
+    box-shadow: var(--shadow) !important;
+    background: var(--white) !important;
     height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    transition: box-shadow 0.25s ease !important;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease !important;
   }
   [data-testid="stVerticalBlockBorderWrapper"] > div:hover {
-    box-shadow: 0 4px 20px rgba(0,106,255,0.13) !important;
-    border-color: #006AFF !important;
+    transform: translateY(-4px) !important;
+    box-shadow: var(--shadow-hover) !important;
+    border-color: var(--primary) !important;
   }
 
-  /* ── Equal height + hover-expand for card rows ───────────────────────── */
-  [data-testid="stHorizontalBlock"] {
-    align-items: stretch !important;
-  }
-  [data-testid="column"]:has([data-testid="stVerticalBlockBorderWrapper"]) {
-    transition: flex-grow 0.35s ease !important;
-    flex-grow: 1 !important;
-  }
-  [data-testid="column"]:has([data-testid="stVerticalBlockBorderWrapper"]):hover {
-    flex-grow: 1.8 !important;
-  }
-  [data-testid="stVerticalBlockBorderWrapper"] {
-    height: 100% !important;
-  }
-  /* Push button to bottom of card */
+  /* ── Equal height for card rows ──────────────────────────────────────── */
+  [data-testid="stHorizontalBlock"] { align-items: stretch !important; }
+  [data-testid="stVerticalBlockBorderWrapper"] { height: 100% !important; }
   [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stButton"] {
     margin-top: auto !important;
     padding-top: 12px !important;
@@ -161,50 +190,296 @@ st.markdown("""
 
   /* ── Buttons ─────────────────────────────────────────────────────────── */
   .stButton > button {
-    border-radius: 6px !important;
-    font-weight: 500 !important;
-    transition: all 0.15s ease !important;
-  }
-  [data-testid="stBaseButton-primary"],
-  .stButton > button[kind="primary"] {
-    background-color: #006AFF !important;
-    border-color: #006AFF !important;
-    color: #FFFFFF !important;
+    background: var(--primary-dark) !important;
+    color: var(--white) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 10px 24px !important;
     font-weight: 600 !important;
+    font-family: 'Rubik', sans-serif !important;
+    transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease !important;
+    box-shadow: 0 2px 8px rgba(26,107,90,0.20) !important;
   }
-  [data-testid="stBaseButton-primary"]:hover,
-  .stButton > button[kind="primary"]:hover {
-    background-color: #0053D6 !important;
-    border-color: #0053D6 !important;
+  .stButton > button:hover {
+    background: #134d41 !important;
+    box-shadow: var(--shadow-hover) !important;
+    transform: translateY(-1px) !important;
+  }
+  .stButton > button:active { transform: translateY(0) !important; }
+
+  /* ── Expanders ───────────────────────────────────────────────────────── */
+  [data-testid="stExpander"] {
+    background: var(--white) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--shadow) !important;
+  }
+  [data-testid="stExpander"] summary {
+    font-weight: 600 !important;
+    color: var(--text-dark) !important;
   }
 
-  /* ── Sidebar ─────────────────────────────────────────────────────────── */
-  [data-testid="stSidebar"] {
-    background: #FFFFFF !important;
-    border-left: 1px solid #E0E0E0 !important;
+  /* ── DataFrames ──────────────────────────────────────────────────────── */
+  [data-testid="stDataFrame"] {
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: var(--shadow) !important;
   }
 
-  /* ── GLOBAL RTL ──────────────────────────────────────────────────────── */
+  /* ── Inputs & Selects ────────────────────────────────────────────────── */
+  .stTextInput input, .stNumberInput input {
+    border-radius: 10px !important;
+    border: 1.5px solid var(--border) !important;
+    font-family: 'Rubik', sans-serif !important;
+    background: var(--white) !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
+  }
+  .stTextInput input:focus, .stNumberInput input:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(53,186,133,0.15) !important;
+  }
+  [data-baseweb="select"] > div {
+    border-radius: 10px !important;
+    border: 1.5px solid var(--border) !important;
+    background: var(--white) !important;
+    font-family: 'Rubik', sans-serif !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
+  }
+  [data-baseweb="select"] > div:focus-within {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(53,186,133,0.15) !important;
+  }
+
+  /* ── Slider ──────────────────────────────────────────────────────────── */
+  [data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] {
+    background: var(--primary-dark) !important;
+    border-color: var(--primary-dark) !important;
+  }
+
+  /* ── Layout: sidebar fixed RIGHT ────────────────────────────────────────
+     Sidebar section is removed from normal flow (position:fixed; right:0).
+     No flex/grid ordering needed — the sidebar just pins to the right.
+     Main content gets margin-right:288px to avoid sliding under sidebar. */
+
+  [data-testid="stAppViewContainer"] {
+    direction: ltr !important;
+  }
+
+  /* Collapse sidebar wrapper so it takes no flex-space */
+  [data-testid="stAppViewContainer"] > div:has([data-testid="stSidebar"]) {
+    flex: 0 0 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Main wrapper: fill all available space */
+  [data-testid="stAppViewContainer"] > div:has([data-testid="stMain"]) {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  /* Sidebar section: pinned to RIGHT of viewport */
+  section[data-testid="stSidebar"] {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    width: 288px !important;
+    min-width: 288px !important;
+    max-width: 288px !important;
+    height: 100dvh !important;
+    background: var(--white) !important;
+    border-right: none !important;
+    border-left: 1px solid var(--border) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    transform: none !important;
+    margin: 0 !important;
+    z-index: 999 !important;
+    display: block !important;
+    visibility: visible !important;
+  }
+  section[data-testid="stSidebar"] > div {
+    transform: none !important;
+    visibility: visible !important;
+  }
+
+  /* Main section: offset from right to clear the fixed sidebar */
+  section[data-testid="stMain"] {
+    margin-left: 0 !important;
+    margin-right: 288px !important;
+    width: calc(100% - 288px) !important;
+    max-width: calc(100% - 288px) !important;
+    min-width: 0 !important;
+    direction: ltr !important;
+    align-items: stretch !important;
+    transform: none !important;
+  }
+
+  [data-testid="stMainBlockContainer"],
+  .block-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    padding-top: 1rem !important;
+    margin: 0 !important;
+    direction: rtl !important;
+  }
+  /* Columns themselves stay LTR so visual order is preserved (col1=left, col2=right) */
+  section[data-testid="stMain"] [data-testid="stHorizontalBlock"] {
+    direction: ltr !important;
+  }
+  section[data-testid="stMain"] [data-testid="column"] {
+    direction: rtl !important;
+  }
+  [data-testid="stSidebarContent"] { padding: 0 !important; }
+
+  /* Logo area */
+  .sidebar-logo {
+    padding: 24px 20px 18px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    font-family: 'Rubik', sans-serif;
+    direction: rtl;
+  }
+
+  /* Hide widget label above the radio group */
+  section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
+    display: none !important;
+  }
+
+  /* Hide the radio dot/circle */
+  section[data-testid="stSidebar"] .stRadio label > div:first-child {
+    display: none !important;
+  }
+
+  /* Nav items */
+  section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+    gap: 2px !important;
+    padding: 0 12px !important;
+  }
+  section[data-testid="stSidebar"] .stRadio label {
+    display: flex !important;
+    align-items: center !important;
+    padding: 13px 16px !important;
+    border-radius: 12px !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    color: var(--text-mid) !important;
+    cursor: pointer !important;
+    transition: all 0.18s ease !important;
+    border: none !important;
+    margin-bottom: 2px !important;
+  }
+  section[data-testid="stSidebar"] .stRadio label:hover {
+    background: var(--primary-light) !important;
+    color: var(--primary-dark) !important;
+  }
+  /* Selected nav item */
+  section[data-testid="stSidebar"] .stRadio label:has(input:checked) {
+    background: var(--primary-light) !important;
+    color: var(--primary-dark) !important;
+    font-weight: 700 !important;
+    border-left: 3px solid var(--primary) !important;
+  }
+
+  /* ── Section header with green accent bar ────────────────────────────── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 28px 0 16px;
+    font-family: 'Rubik', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    direction: rtl;
+  }
+  .section-header::after {
+    content: '';
+    display: block;
+    width: 4px;
+    height: 24px;
+    background: var(--primary);
+    border-radius: 2px;
+    flex-shrink: 0;
+    order: -1;
+  }
+
+  /* ── RTL: Hebrew text right-aligned everywhere ───────────────────────── */
+
+  /* Main: all text right-aligned */
   section[data-testid="stMain"],
   section[data-testid="stMain"] * {
-    direction: rtl !important;
     text-align: right !important;
   }
 
-  /* ── LTR exceptions ──────────────────────────────────────────────────── */
-  input, textarea,
-  [data-baseweb="input"] input,
-  [data-baseweb="textarea"] textarea {
+  /* direction:rtl on every Streamlit widget container + text nodes */
+  section[data-testid="stMain"] p,
+  section[data-testid="stMain"] span,
+  section[data-testid="stMain"] h1,
+  section[data-testid="stMain"] h2,
+  section[data-testid="stMain"] h3,
+  section[data-testid="stMain"] h4,
+  section[data-testid="stMain"] h5,
+  section[data-testid="stMain"] h6,
+  section[data-testid="stMain"] label,
+  section[data-testid="stMain"] li,
+  section[data-testid="stMain"] td,
+  section[data-testid="stMain"] th,
+  section[data-testid="stMain"] [data-testid="stMarkdownContainer"],
+  section[data-testid="stMain"] [data-testid="stText"],
+  section[data-testid="stMain"] [data-testid="stMetricLabel"],
+  section[data-testid="stMain"] [data-testid="stMetricValue"],
+  section[data-testid="stMain"] [data-testid="stMetricDelta"],
+  section[data-testid="stMain"] [data-testid="stWidgetLabel"],
+  section[data-testid="stMain"] [data-testid="stRadio"],
+  section[data-testid="stMain"] [data-testid="stSelectbox"],
+  section[data-testid="stMain"] [data-testid="stNumberInput"],
+  section[data-testid="stMain"] [data-testid="stTextInput"],
+  section[data-testid="stMain"] [data-testid="stSlider"],
+  section[data-testid="stMain"] [data-testid="stMultiSelect"],
+  section[data-testid="stMain"] [data-testid="stCheckbox"],
+  section[data-testid="stMain"] [data-testid="stExpander"],
+  section[data-testid="stMain"] [data-testid="stVerticalBlock"],
+  section[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] {
+    direction: rtl !important;
+  }
+
+  /* Inputs / dataframes: keep LTR */
+  section[data-testid="stMain"] input,
+  section[data-testid="stMain"] textarea {
     direction: ltr !important;
     text-align: left !important;
   }
-  .js-plotly-plot, .js-plotly-plot *, iframe,
-  [data-testid="stIFrame"]          { direction: ltr !important; }
-  [data-baseweb="slider"] [role="slider"] { direction: ltr !important; }
-  [data-testid="stDataFrameContainer"],
-  [data-testid="stDataFrameContainer"] * { direction: ltr !important; text-align: left !important; }
+  section[data-testid="stMain"] [data-testid="stDataFrameContainer"],
+  section[data-testid="stMain"] [data-testid="stDataFrameContainer"] * {
+    text-align: left !important;
+  }
+
+  /* Sidebar: RTL text */
+  section[data-testid="stSidebar"],
+  section[data-testid="stSidebar"] * {
+    text-align: right !important;
+    direction: rtl !important;
+  }
+  /* Sidebar inputs stay LTR */
+  section[data-testid="stSidebar"] input {
+    direction: ltr !important;
+    text-align: left !important;
+  }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 # ── helper: render a block of Hebrew HTML right-to-left ───────────────────────
@@ -1101,12 +1376,11 @@ if "_nav_request" in st.session_state:
 
 with st.sidebar:
     st.markdown("""
-    <div dir="rtl" style="text-align:center; padding:16px 0 12px;">
-      <span style="font-size:2.2rem;">🏠</span><br>
-      <b style="font-size:1.1rem; color:#006AFF;">יועץ נדל"ן חכם</b>
+    <div class="sidebar-logo">
+      <div style="font-size:1.4rem;font-weight:700;color:#1A6B5A;">🏠 יועץ נדל"ן</div>
+      <div style="font-size:0.72rem;font-weight:400;color:#8A9E98;margin-top:3px;">AI · נדל"ן ישראל</div>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown("---")
 
     page = st.radio(
         "ניווט:",
@@ -1121,9 +1395,12 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-    st.markdown("---")
     st.markdown("""
-    <div dir="rtl" style="font-size:0.8rem; color:#696969; text-align:right; line-height:1.5;">
+    <div dir="rtl" style="
+      font-size:0.78rem; color:#8A9E98; text-align:right; line-height:1.6;
+      padding: 16px 16px 20px; margin-top: 12px;
+      border-top: 1px solid #D4EBE2;
+    ">
     המודל אומן על 6,609 עסקאות נדל"ן אמיתיות בישראל.<br><br>
     הכלי מיועד לסיוע בקבלת החלטות בלבד — אינו תחליף לייעוץ מקצועי.
     </div>
@@ -1137,14 +1414,14 @@ if page == "🏠 עמוד הבית":
 
     st.markdown("""
     <div dir="rtl" style="
-      background:linear-gradient(135deg,#006AFF 0%,#1277E1 100%);
-      color:white; padding:32px 40px; border-radius:12px; margin-bottom:24px; text-align:right;
-      box-shadow:0 4px 16px rgba(0,106,255,0.20);
+      background:linear-gradient(135deg,#35BA85 0%,#1A6B5A 100%);
+      color:white; padding:44px 40px; border-radius:20px; margin-bottom:28px; text-align:center;
+      box-shadow:0 6px 24px rgba(26,107,90,0.22); font-family:'Rubik',sans-serif;
     ">
-      <h1 style="margin:0;font-size:2rem;font-weight:700;letter-spacing:-0.5px;">🏠 יועץ נדל"ן חכם</h1>
-      <p style="margin:10px 0 0;opacity:0.88;font-size:1rem;font-weight:400;line-height:1.5;">
-        כלי חינמי לניתוח השקעות נדל"ן בישראל — מבוסס נתוני רשות המיסים ומודל בינה מלאכותית
-      </p>
+      <div style="font-size:2.2rem;font-weight:700;letter-spacing:-0.5px;">🏠 יועץ נדל"ן חכם</div>
+      <div style="margin:12px 0 0;opacity:0.90;font-size:1.05rem;font-weight:400;line-height:1.6;">
+        מדלן. לדעת. למצוא השקעה. · מבוסס נתוני רשות המיסים ובינה מלאכותית
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1164,7 +1441,7 @@ if page == "🏠 עמוד הבית":
         if st.button("👤 הגדר פרופיל עכשיו ←", key="home_goto_profile", type="primary"):
             st.session_state["_nav_request"] = "👤 הפרופיל שלי"
             st.rerun()
-        st.markdown("---")
+        st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
     else:
         _goal_short = "תשואה שוטפת" if "תשואה" in st.session_state.get("profile_goal", "💵 תשואה שוטפת (השכרה)") else "עליית ערך"
         st.success(f"👤 פרופיל פעיל: תקציב **{st.session_state.get('profile_budget', 2_000_000):,} ₪** · מטרה: **{_goal_short}**")
@@ -1207,7 +1484,7 @@ if page == "🏠 עמוד הבית":
                 st.session_state["_nav_request"] = "📊 עיין בנכסים ביישוב"
                 st.rerun()
 
-    st.markdown("---")
+    st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
 
     # ── Quick reference legend ─────────────────────────────────────────────────
     with st.expander("📌 מה כל עמוד עושה — טבלת עזר מהירה"):
@@ -1240,7 +1517,7 @@ if page == "🏠 עמוד הבית":
         </table>
         """)
 
-    st.markdown("---")
+    st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
     rtl('<h2>📚 מילון מושגים — הסבר על מונחי נדל"ן</h2>')
     rtl('<p style="color:#555">לחץ על כל מושג כדי לקרוא הסבר פשוט</p>')
 
@@ -1454,7 +1731,7 @@ elif page == "👤 הפרופיל שלי":
         f"תקציב: **{st.session_state.get('profile_budget', 2_000_000):,} ₪**"
     )
 
-    st.markdown("---")
+    st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
     if st.button("🔍 עבור למצא אזור להשקעה ←", key="profile_goto_find", type="primary"):
         st.session_state["_nav_request"] = "🔍 מצא אזור להשקעה"
         st.rerun()
@@ -1534,7 +1811,7 @@ elif page == "🔍 מצא אזור להשקעה":
         m4.metric("מחיר ממוצע מוביל", f"{best['avg_price']:,.0f} ₪",
                   help="מחיר ממוצע של דירות באזור המוביל לפי עסקאות אמיתיות.")
 
-        st.markdown("---")
+        st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
         st.markdown(
             '<div dir="rtl" style="margin:0.5rem 0 0.25rem 0;">'
             '<span style="font-size:1.4rem;font-weight:700;line-height:1.3;">🏆 האזורים המומלצים ביותר עבורך</span>'
@@ -1687,7 +1964,7 @@ elif page == "🔍 מצא אזור להשקעה":
         rtl('<h3>📊 השוואה ויזואלית — ציון כדאיות לפי אזור</h3>')
         fig = px.bar(
             df_show.head(12), x="יישוב", y="ציון כדאיות",
-            color="ציון כדאיות", color_continuous_scale="RdYlGn",
+            color="ציון כדאיות", color_continuous_scale=[[0,"#E8334A"],[0.5,"#F5A623"],[1.0,"#35BA85"]],
             range_color=[0, 10], height=370, text="ציון כדאיות",
         )
         fig.update_traces(texttemplate="%{text:.1f}", textposition="outside")
@@ -1698,7 +1975,7 @@ elif page == "🔍 מצא אזור להשקעה":
             fig2 = px.scatter(
                 filtered.head(30), x="avg_price", y="trend_pct_yr",
                 size="deal_count", color="score",
-                color_continuous_scale="RdYlGn", range_color=[0, 10],
+                color_continuous_scale=[[0,"#E8334A"],[0.5,"#F5A623"],[1.0,"#35BA85"]], range_color=[0, 10],
                 hover_name="settlementNameHeb",
                 labels={"avg_price": "מחיר ממוצע (₪)", "trend_pct_yr": "מגמה (%/שנה)",
                         "deal_count": "עסקאות", "score": "ציון כדאיות"},
@@ -1982,7 +2259,7 @@ elif page == "🏡 בדוק נכס ספציפי":
         liq_score    = min(100.0, n_deals / 50.0 * 100.0)
         viability    = round((0.60 * price_score + 0.25 * socio_score + 0.15 * liq_score) / 10, 1)
 
-        st.markdown("---")
+        st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
         rtl('<h2>📊 תוצאות הניתוח</h2>')
 
         if viability >= 7.0:
@@ -2106,7 +2383,7 @@ elif page == "🏡 בדוק נכס ספציפי":
             )
 
         # ── Map & POI ─────────────────────────────────────────────────────────
-        st.markdown("---")
+        st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
         _map_open = st.session_state.get("cp_show_map", False)
         _map_label = "🗺️ הסתר מפה ונקודות עניין" if _map_open else "🗺️ הצג מפה ונקודות עניין"
         if st.button(_map_label, key="toggle_map_btn"):
@@ -2410,7 +2687,7 @@ elif page == "📊 עיין בנכסים ביישוב":
         sm4.metric("ציון כדאיות ממוצע", f"{df_city['viability_score'].mean():.1f} / 10",
                    help="מעל 5 = בממוצע נמכרו מתחת לשוק.")
 
-        st.markdown("---")
+        st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
         rtl('<h3>סינון עסקאות</h3>')
 
         area_vals  = df_city["assetArea"].dropna()
@@ -2802,7 +3079,7 @@ elif page == "📊 עיין בנכסים ביישוב":
                 else:
                     st.info("ממתין לציור פוליגון — מוצגות כל המודעות")
 
-                st.markdown("---")
+                st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
 
             sm1, sm2, sm3, sm4 = st.columns(4)
             sm1.metric("מודעות פעילות", len(df_rt),
@@ -2819,7 +3096,7 @@ elif page == "📊 עיין בנכסים ביישוב":
                        help="מעל 5 = בממוצע המחיר מתחת להערכת המודל.")
 
             # ── Filters ───────────────────────────────────────────────────────
-            st.markdown("---")
+            st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
             rtl('<h3>סינון מודעות</h3>')
 
             _price_col = "מחיר מבוקש (₪)"
