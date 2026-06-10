@@ -1,5 +1,5 @@
 """
-יועץ נדל"ן חכם — גרסה מפושטת
+נדלניסט — גרסה מפושטת
 Run:  streamlit run app_simple.py
 """
 import pathlib
@@ -60,7 +60,7 @@ _DISTRICT_MAP = {
 }
 
 st.set_page_config(
-    page_title='יועץ נדל"ן חכם',
+    page_title='נדלניסט',
     layout="wide",
     page_icon="🏠",
 )
@@ -505,7 +505,7 @@ def load_data():
     return df_ml, df_d
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def compute_predictions():
     mdl   = joblib.load(str(MODEL_PATH))
     df_ml = pd.read_csv(str(APT_ML_PATH),   encoding="utf-8-sig")
@@ -518,7 +518,7 @@ def compute_predictions():
     return df_d
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def compute_area_stats():
     mdl   = joblib.load(str(MODEL_PATH))
     df_ml = pd.read_csv(str(APT_ML_PATH),   encoding="utf-8-sig")
@@ -549,7 +549,7 @@ def compute_area_stats():
     return stats
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def get_baselines():
     df_ml = pd.read_csv(str(APT_ML_PATH),   encoding="utf-8-sig")
     df_d  = pd.read_csv(str(APT_DISP_PATH), encoding="utf-8-sig")
@@ -1377,7 +1377,7 @@ if "_nav_request" in st.session_state:
 with st.sidebar:
     st.markdown("""
     <div class="sidebar-logo">
-      <div style="font-size:1.4rem;font-weight:700;color:#1A6B5A;">🏠 יועץ נדל"ן</div>
+      <div style="font-size:1.4rem;font-weight:700;color:#1A6B5A;">🏠 נדלניסט</div>
       <div style="font-size:0.72rem;font-weight:400;color:#8A9E98;margin-top:3px;">AI · נדל"ן ישראל</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1387,9 +1387,9 @@ with st.sidebar:
         [
             "🏠 עמוד הבית",
             "👤 הפרופיל שלי",
-            "🔍 מצא אזור להשקעה",
-            "🏡 בדוק נכס ספציפי",
-            "📊 עיין בנכסים ביישוב",
+            "🔍 איפה להשקיע?",
+            "🏡 בדוק עסקה ספציפית",
+            "📊 חפש עסקאות פעילות",
         ],
         key="nav_page",
         label_visibility="collapsed",
@@ -1397,15 +1397,23 @@ with st.sidebar:
 
     st.markdown("""
     <div dir="rtl" style="
-      font-size:0.78rem; color:#8A9E98; text-align:right; line-height:1.6;
+      font-size:0.83rem; color:#4A5E58; text-align:right; line-height:1.7;
       padding: 16px 16px 20px; margin-top: 12px;
       border-top: 1px solid #D4EBE2;
     ">
-    המודל אומן על 6,609 עסקאות נדל"ן אמיתיות בישראל.<br><br>
+    המודל אומן על <strong>6,609 עסקאות</strong> נדל"ן אמיתיות בישראל.<br><br>
     הכלי מיועד לסיוע בקבלת החלטות בלבד — אינו תחליף לייעוץ מקצועי.
     </div>
     """, unsafe_allow_html=True)
 
+
+# ─── Pre-warm caches so page navigation is instant ────────────────────────────
+# These run once on first load (silently, show_spinner=False) and return
+# cached results on every subsequent rerun — eliminating ghost-render artifacts
+# where the previous page's content bleeds through while a heavy function runs.
+load_model()
+compute_predictions()
+compute_area_stats()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 0 — HOME
@@ -1418,7 +1426,7 @@ if page == "🏠 עמוד הבית":
       color:white; padding:44px 40px; border-radius:20px; margin-bottom:28px; text-align:center;
       box-shadow:0 6px 24px rgba(26,107,90,0.22); font-family:'Rubik',sans-serif;
     ">
-      <div style="font-size:2.2rem;font-weight:700;letter-spacing:-0.5px;">🏠 יועץ נדל"ן חכם</div>
+      <div style="font-size:2.2rem;font-weight:700;letter-spacing:-0.5px;">🏠 נדלניסט</div>
       <div style="margin:12px 0 0;opacity:0.90;font-size:1.05rem;font-weight:400;line-height:1.6;">
         מדלן. לדעת. למצוא השקעה. · מבוסס נתוני רשות המיסים ובינה מלאכותית
       </div>
@@ -1454,34 +1462,43 @@ if page == "🏠 עמוד הבית":
     with c1:
         with st.container(border=True):
             rtl("""
-            <h4>🔍 מצא אזור להשקעה</h4>
+            <h4>🔍 איפה להשקיע?</h4>
+            <span style="display:inline-block;background:#E0F5EC;color:#1A6B5A;
+              border-radius:20px;padding:3px 12px;font-size:0.78rem;font-weight:700;
+              margin-bottom:10px;">32+ אזורים מנותחים</span>
             <p style="color:#555; font-size:0.9rem;">מתי: לא יודע איפה לחפש</p>
             <p>קבל רשימת ערים מומלצות לפי תקציב ומטרה — ממוינות לפי ציון כדאיות.</p>
             """)
             if st.button("התחל לחפש ←", key="go_find", use_container_width=True):
-                st.session_state["_nav_request"] = "🔍 מצא אזור להשקעה"
+                st.session_state["_nav_request"] = "🔍 איפה להשקיע?"
                 st.rerun()
 
     with c2:
         with st.container(border=True):
             rtl("""
-            <h4>🏡 בדוק נכס ספציפי</h4>
+            <h4>🏡 בדוק עסקה ספציפית</h4>
+            <span style="display:inline-block;background:#E0F5EC;color:#1A6B5A;
+              border-radius:20px;padding:3px 12px;font-size:0.78rem;font-weight:700;
+              margin-bottom:10px;">6,609 עסקאות · R²=0.74</span>
             <p style="color:#555; font-size:0.9rem;">מתי: מצאת דירה ורוצה לדעת אם המחיר הוגן</p>
             <p>הכנס פרטי הנכס — המודל יגיד אם המחיר מעל או מתחת לשוק.</p>
             """)
             if st.button("בדוק נכס ←", key="go_check", use_container_width=True):
-                st.session_state["_nav_request"] = "🏡 בדוק נכס ספציפי"
+                st.session_state["_nav_request"] = "🏡 בדוק עסקה ספציפית"
                 st.rerun()
 
     with c3:
         with st.container(border=True):
             rtl("""
-            <h4>📊 עיין בנכסים ביישוב</h4>
+            <h4>📊 חפש עסקאות פעילות</h4>
+            <span style="display:inline-block;background:#E0F5EC;color:#1A6B5A;
+              border-radius:20px;padding:3px 12px;font-size:0.78rem;font-weight:700;
+              margin-bottom:10px;">נתוני יד2 בזמן אמת</span>
             <p style="color:#555; font-size:0.9rem;">מתי: רוצה לראות מה נמכר בפועל בעיר מסוימת</p>
             <p>סנן עסקאות לפי גודל, חדרים ושנה — כולל מחיר חזוי וציון לכל עסקה.</p>
             """)
             if st.button("עיין ביישוב ←", key="go_browse", use_container_width=True):
-                st.session_state["_nav_request"] = "📊 עיין בנכסים ביישוב"
+                st.session_state["_nav_request"] = "📊 חפש עסקאות פעילות"
                 st.rerun()
 
     st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
@@ -1497,19 +1514,19 @@ if page == "🏠 עמוד הבית":
             <th style="padding:10px; border:1px solid #E0E0E0; text-align:right;">מה מקבלים</th>
           </tr>
           <tr>
-            <td style="padding:10px; border:1px solid #E0E0E0;"><strong>🔍 מצא אזור</strong></td>
+            <td style="padding:10px; border:1px solid #E0E0E0;"><strong>🔍 איפה להשקיע?</strong></td>
             <td style="padding:10px; border:1px solid #E0E0E0;">באיזו עיר כדאי לחפש?</td>
             <td style="padding:10px; border:1px solid #E0E0E0;">תקציב + מטרה (שכ"ד / ערך)</td>
             <td style="padding:10px; border:1px solid #E0E0E0;">רשימת ערים עם ציון כדאיות + גרף</td>
           </tr>
           <tr style="background:#fafafa;">
-            <td style="padding:10px; border:1px solid #E0E0E0;"><strong>🏡 בדוק נכס</strong></td>
+            <td style="padding:10px; border:1px solid #E0E0E0;"><strong>🏡 בדוק עסקה</strong></td>
             <td style="padding:10px; border:1px solid #E0E0E0;">האם המחיר של הדירה הזו הוגן?</td>
             <td style="padding:10px; border:1px solid #E0E0E0;">עיר + מחיר + שטח + חדרים + קומה</td>
             <td style="padding:10px; border:1px solid #E0E0E0;">ציון 0–100 + פירוט + עסקאות דומות</td>
           </tr>
           <tr>
-            <td style="padding:10px; border:1px solid #E0E0E0;"><strong>📊 עיין ביישוב</strong></td>
+            <td style="padding:10px; border:1px solid #E0E0E0;"><strong>📊 חפש עסקאות</strong></td>
             <td style="padding:10px; border:1px solid #E0E0E0;">בכמה נמכרו דירות בעיר הזו?</td>
             <td style="padding:10px; border:1px solid #E0E0E0;">עיר + פילטרים (גודל / שנה / חדרים)</td>
             <td style="padding:10px; border:1px solid #E0E0E0;">טבלת עסקאות אמיתיות + גרף מחירים</td>
@@ -1628,7 +1645,7 @@ if page == "🏠 עמוד הבית":
         אבל לא מדויק לסכומים קטנים. השתמש בו כאינדיקטור.</p>
         """)
 
-    st.info("💡 טיפ: אם אתה חדש בנדל\"ן, התחל עם \"מצא אזור להשקעה\" — הכנס תקציב וקבל המלצות מיידיות.")
+    st.info("💡 טיפ: אם אתה חדש בנדל\"ן, התחל עם \"איפה להשקיע?\" — הכנס תקציב וקבל המלצות מיידיות.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1732,17 +1749,17 @@ elif page == "👤 הפרופיל שלי":
     )
 
     st.markdown('<div style="height:1px;background:#D4EBE2;margin:20px 0;border-radius:1px;"></div>', unsafe_allow_html=True)
-    if st.button("🔍 עבור למצא אזור להשקעה ←", key="profile_goto_find", type="primary"):
-        st.session_state["_nav_request"] = "🔍 מצא אזור להשקעה"
+    if st.button("🔍 עבור לאיפה להשקיע? ←", key="profile_goto_find", type="primary"):
+        st.session_state["_nav_request"] = "🔍 איפה להשקיע?"
         st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — FIND AREA
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🔍 מצא אזור להשקעה":
+elif page == "🔍 איפה להשקיע?":
 
-    rtl('<h1>🔍 מצא אזור להשקעה</h1>')
+    rtl('<h1>🔍 איפה להשקיע?</h1>')
 
     # ── Explanation bar ───────────────────────────────────────────────────────
     with st.expander("📖 הסבר על הכלי — לחץ לפתיחה / סגירה", expanded=True):
@@ -1891,9 +1908,7 @@ elif page == "🔍 מצא אזור להשקעה":
                 f'<span style="font-size:.8rem;font-weight:700;color:{_cl};">{_sc:.1f}</span>'
                 f'</div></td>'
                 f'<td style="padding:8px 12px;text-align:right;direction:ltr;">₪{int(_r["מחיר ממוצע (₪)"]):,}</td>'
-                f'<td style="padding:8px 12px;text-align:center;color:{_gc};">{_gap:+.1f}%</td>'
                 f'<td style="padding:8px 12px;text-align:center;color:{_tc};">{_trd:+.1f}%</td>'
-                f'<td style="padding:8px 12px;text-align:center;">{int(_r["כמות עסקאות"])}</td>'
                 f'<td style="padding:8px 12px;text-align:center;">{_r["מדד סוציו"]:.2f}</td>'
                 f'<td style="padding:8px 12px;text-align:right;direction:ltr;">₪{int(_r["שכירות חודשית"]):,}</td>'
             )
@@ -1918,9 +1933,7 @@ elif page == "🔍 מצא אזור להשקעה":
             f'<th style="{_th}text-align:right;">יישוב</th>'
             f'<th style="{_th}text-align:right;min-width:150px;">ציון כדאיות (0-10) {_b_score}</th>'
             f'<th style="{_th}text-align:right;">מחיר ממוצע (₪) {_b_price}</th>'
-            f'<th style="{_th}text-align:center;">פער ממחיר שוק (%) {_b_gap}</th>'
             f'<th style="{_th}text-align:center;">מגמת מחירים/שנה (%) {_b_trend}</th>'
-            f'<th style="{_th}text-align:center;">כמות עסקאות {_b_count}</th>'
             f'<th style="{_th}text-align:center;">מדד סוציו-אקונומי {_b_socio}</th>'
             f'<th style="{_th}text-align:right;">שכירות חודשית צפויה {_b_rent}</th>'
         )
@@ -1931,6 +1944,7 @@ elif page == "🔍 מצא אזור להשקעה":
             f'<tbody>{"".join(_trs)}</tbody>'
             '</table></div>'
         )
+
         st.markdown(_tbl, unsafe_allow_html=True)
 
         with st.expander("📖 איך לקרוא את הטבלה?"):
@@ -1989,9 +2003,9 @@ elif page == "🔍 מצא אזור להשקעה":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — CHECK PROPERTY
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🏡 בדוק נכס ספציפי":
+elif page == "🏡 בדוק עסקה ספציפית":
 
-    rtl('<h1>🏡 בדוק נכס ספציפי</h1>')
+    rtl('<h1>🏡 בדוק עסקה ספציפית</h1>')
 
     # ── Explanation bar ───────────────────────────────────────────────────────
     with st.expander("📖 הסבר על הכלי — לחץ לפתיחה / סגירה", expanded=True):
@@ -2555,9 +2569,9 @@ elif page == "🏡 בדוק נכס ספציפי":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — BROWSE CITY
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📊 עיין בנכסים ביישוב":
+elif page == "📊 חפש עסקאות פעילות":
 
-    rtl('<h1>📊 עיין בנכסים ביישוב</h1>')
+    rtl('<h1>📊 חפש עסקאות פעילות</h1>')
 
     # ── Explanation bar ───────────────────────────────────────────────────────
     with st.expander("📖 הסבר על הכלי — לחץ לפתיחה / סגירה", expanded=True):
